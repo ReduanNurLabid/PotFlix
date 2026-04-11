@@ -9,6 +9,14 @@
 
 <br />
 
+## 🎉 What's New in v2.0.0
+- **Native YouTube Trailers**: A seamless "Watch Trailer" button automatically fetches official TMDB trailers and plays them in a beautiful 16:9 cinematic dark overlay.
+- **Smart Search Deduplication**: Searching intelligently merges identical movies across different FTP resolution folders, automatically presenting the highest-available video quality.
+- **Exact-Year Metadata Matching**: The TMDB search algorithm strictly maps release years to guarantee precise metadata (fixing mismatches between big Hollywood classics and contemporary regional remakes).
+- **UI & Layout Polish**: Resolved visual padding bugs across Browse, Search, and Category views for a flawless presentation underneath the transparent navigation bar.
+
+---
+
 ## ✨ Features
 - **Netflix-Style Interface**: Beautiful, responsive, dark-mode UI with hero banners, custom sliders, and smooth animations.
 - **Instant VLC Integration**: Streams high-quality media (1080p, 4K) directly from the FTP server straight to VLC Media Player with auto-play capabilities.
