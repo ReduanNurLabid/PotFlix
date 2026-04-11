@@ -1,0 +1,37 @@
+{
+  "name": "dhakaflix-streamer",
+  "version": "2.0.0",
+  "description": "Netflix-like desktop app for DhakaFlix FTP server with VLC streaming",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "server": "node server.js",
+    "dev": "electron .",
+    "package": "electron-builder --dir",
+    "build": "electron-builder -w"
+  },
+  "dependencies": {
+    "cheerio": "^1.0.0",
+    "express": "^4.21.0"
+  },
+  "devDependencies": {
+    "electron": "^35.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.potflix.streamer",
+    "productName": "PotFlix",
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  }
+}
