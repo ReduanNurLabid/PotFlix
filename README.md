@@ -2,6 +2,10 @@
   <h1>🍿 PotFlix Streamer</h1>
   <p><strong>A sleek, Netflix-inspired desktop application for browsing and streaming movies directly from local FTP servers via VLC Media Player.</strong></p>
 
+  <br />
+  <img src="ss.png" alt="PotFlix App Screenshot" width="800" style="border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.5);" />
+  <br /><br />
+
   <p>
     <a href="https://reduan.vercel.app/" target="_blank">♥ By Reduan</a>
   </p>
@@ -35,11 +39,23 @@
 2. **VLC Media Player**: Required to stream the videos locally. Ensure VLC is installed on your system (C:\Program Files\VideoLAN\VLC\vlc.exe).
 
 ### Development Server
-Clone the repository, install dependencies, and start the development server:
+
+1. **Clone & Install Dependencies:**
 ```bash
 git clone https://github.com/ReduanNurLabid/PotFlix.git
 cd PotFlix
 npm install
+```
+
+2. **Set up TMDB API Key:**
+Create a `.env` file in the root directory (you can copy `.env.example`) and add your TMDB API key:
+```env
+TMDB_API_KEY=your_api_key_here
+```
+*(You can easily get a free API key from [TMDB](https://www.themoviedb.org/settings/api))*
+
+3. **Start the application:**
+```bash
 npm start
 ```
 
