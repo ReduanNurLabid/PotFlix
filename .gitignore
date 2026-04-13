@@ -3,3 +3,4 @@ dist/
 search_cache.json
 .DS_Store
 *.log
+.env

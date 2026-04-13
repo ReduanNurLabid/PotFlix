@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const path = require('path');
 const { execFile } = require('child_process');
@@ -8,7 +9,7 @@ const app = express();
 const PORT = 3000;
 
 // TMDB Configuration
-const TMDB_API_KEY = 'cdb4d6683a4de1f186e7da86dccdd7f1';
+const TMDB_API_KEY = process.env.TMDB_API_KEY || '';
 const TMDB_BASE = 'https://api.themoviedb.org/3';
 const TMDB_IMG = 'https://image.tmdb.org/t/p';
 
