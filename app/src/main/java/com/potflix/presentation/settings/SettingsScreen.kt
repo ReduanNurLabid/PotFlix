@@ -78,6 +78,20 @@ fun SettingsScreen(
             }
             
             item {
+                val isSyncing by viewModel.isSyncing.collectAsState()
+                val syncProgress by viewModel.syncProgress.collectAsState()
+                val lastSyncTime by viewModel.lastSyncTime.collectAsState()
+                
+                SettingsClickableItem(
+                    icon = androidx.compose.material.icons.Icons.Default.Refresh,
+                    title = if (isSyncing) "Syncing Database..." else "Sync Database",
+                    subtitle = if (isSyncing) syncProgress else "Last synced: $lastSyncTime",
+                    onClick = { if (!isSyncing) viewModel.syncDatabase() },
+                    isLoading = isSyncing
+                )
+            }
+            
+            item {
                 Spacer(modifier = Modifier.height(16.dp))
                 SettingsSectionTitle("Updates")
             }

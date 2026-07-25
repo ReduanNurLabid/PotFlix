@@ -20,7 +20,8 @@ import com.potflix.data.local.entity.toLocalMovieEntity
 class HomeViewModel @Inject constructor(
     private val repository: MovieRepository,
     private val syncManager: CatalogSyncManager,
-    private val localMovieDao: LocalMovieDao
+    private val localMovieDao: LocalMovieDao,
+    private val application: android.app.Application
 ) : ViewModel() {
 
     private val _categories = MutableStateFlow<List<Category>>(emptyList())
@@ -41,6 +42,13 @@ class HomeViewModel @Inject constructor(
     val isSyncing = syncManager.isSyncing
     val syncProgress = syncManager.syncProgress
 
+    private val _toastMessage = MutableStateFlow<String?>(null)
+    val toastMessage = _toastMessage.asStateFlow()
+
+    fun clearToastMessage() {
+        _toastMessage.value = null
+    }
+
     fun toggleHeroWatchlist() {
         val heroMovie = _trendingMovies.value.firstOrNull() ?: return
         viewModelScope.launch {
@@ -54,9 +62,11 @@ class HomeViewModel @Inject constructor(
     }
 
     init {
-        // Start background sync
-        viewModelScope.launch {
-            syncManager.syncCatalog()
+        val prefs = application.getSharedPreferences("potflix_prefs", android.content.Context.MODE_PRIVATE)
+        val lastSync = prefs.getLong("last_sync_time", 0L)
+        val currentTime = System.currentTimeMillis()
+        if (currentTime - lastSync > 24 * 60 * 60 * 1000L && lastSync != 0L) {
+            _toastMessage.value = "It's been 24 hours. Consider manually syncing the database in Settings!"
         }
         
         loadHomeData()

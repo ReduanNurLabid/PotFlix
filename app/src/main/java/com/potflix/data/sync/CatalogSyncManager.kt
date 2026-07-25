@@ -14,7 +14,8 @@ import javax.inject.Singleton
 
 @Singleton
 class CatalogSyncManager @Inject constructor(
-    private val movieDao: MovieDao
+    private val movieDao: MovieDao,
+    private val application: android.app.Application
 ) {
     private val _isSyncing = MutableStateFlow(false)
     val isSyncing = _isSyncing.asStateFlow()
@@ -60,7 +61,7 @@ class CatalogSyncManager @Inject constructor(
                 
                 for (entry in entries) {
                     if (entry.isDirectory && entry.type == "yearFolder") {
-                        kotlinx.coroutines.delay(2000)
+                        kotlinx.coroutines.delay(50)
                         // Crawl into year folders
                         val subEntries = PotFlixScraper.scrapeDirectory(entry.url)
                         for (subEntry in subEntries) {
@@ -71,7 +72,7 @@ class CatalogSyncManager @Inject constructor(
                     } else if (entry.isDirectory && (entry.type == "movie" || entry.type == "tv")) {
                         moviesToInsert.add(createMovieEntity(entry, category))
                     } else if (entry.isDirectory && entry.type == null) {
-                        kotlinx.coroutines.delay(2000)
+                        kotlinx.coroutines.delay(50)
                         // Crawl into alphabetical ranges like A-L
                         val subEntries = PotFlixScraper.scrapeDirectory(entry.url)
                         for (subEntry in subEntries) {
@@ -88,8 +89,11 @@ class CatalogSyncManager @Inject constructor(
                 }
                 
                 // Heavy yield to keep the media server free for UI stream fetching
-                kotlinx.coroutines.delay(5000)
+                kotlinx.coroutines.delay(100)
             }
+            
+            val prefs = application.getSharedPreferences("potflix_prefs", android.content.Context.MODE_PRIVATE)
+            prefs.edit().putLong("last_sync_time", System.currentTimeMillis()).apply()
             
             _syncProgress.value = "Synced $totalAdded items"
         } catch (e: Exception) {

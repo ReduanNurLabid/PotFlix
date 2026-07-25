@@ -23,7 +23,8 @@ data class AppUpdate(
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
-    private val application: Application
+    private val application: Application,
+    private val syncManager: com.potflix.data.sync.CatalogSyncManager
 ) : ViewModel() {
 
     private val _cacheSize = MutableStateFlow("Calculating...")
@@ -35,8 +36,34 @@ class SettingsViewModel @Inject constructor(
     private val _toastMessage = MutableStateFlow<String?>(null)
     val toastMessage: StateFlow<String?> = _toastMessage.asStateFlow()
 
+    val isSyncing = syncManager.isSyncing
+    val syncProgress = syncManager.syncProgress
+    
+    private val _lastSyncTime = MutableStateFlow("Never")
+    val lastSyncTime: StateFlow<String> = _lastSyncTime.asStateFlow()
+
     init {
         calculateCacheSize()
+        fetchLastSyncTime()
+    }
+    
+    fun fetchLastSyncTime() {
+        val prefs = application.getSharedPreferences("potflix_prefs", Context.MODE_PRIVATE)
+        val time = prefs.getLong("last_sync_time", 0L)
+        if (time == 0L) {
+            _lastSyncTime.value = "Never"
+        } else {
+            val sdf = java.text.SimpleDateFormat("MMM dd, yyyy - hh:mm a", java.util.Locale.getDefault())
+            _lastSyncTime.value = sdf.format(java.util.Date(time))
+        }
+    }
+    
+    fun syncDatabase() {
+        viewModelScope.launch {
+            syncManager.syncCatalog()
+            fetchLastSyncTime()
+            _toastMessage.value = "Database Sync Complete!"
+        }
     }
 
     fun clearToastMessage() {

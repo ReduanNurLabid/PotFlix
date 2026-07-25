@@ -45,6 +45,15 @@ fun HomeScreen(
     val isSyncing by viewModel.isSyncing.collectAsState()
     val syncProgress by viewModel.syncProgress.collectAsState()
     val isHeroInWatchlist by viewModel.isHeroInWatchlist.collectAsState()
+    val toastMessage by viewModel.toastMessage.collectAsState()
+    val context = androidx.compose.ui.platform.LocalContext.current
+
+    LaunchedEffect(toastMessage) {
+        toastMessage?.let {
+            android.widget.Toast.makeText(context, it, android.widget.Toast.LENGTH_LONG).show()
+            viewModel.clearToastMessage()
+        }
+    }
 
     var selectedFilter by remember { mutableStateOf("All") }
     val filterTabs = listOf("All", "TV Shows", "Movies", "Categories")
