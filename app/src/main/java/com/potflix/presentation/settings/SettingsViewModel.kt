@@ -14,6 +14,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import javax.inject.Inject
 
+@androidx.annotation.Keep
 data class AppUpdate(
     val versionCode: Int,
     val versionName: String,
@@ -182,7 +183,7 @@ class SettingsViewModel @Inject constructor(
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
-                    _toastMessage.value = "Failed to check for updates. Setup update.json online first."
+                    _toastMessage.value = "Failed: ${e.message}"
                 }
             }
         }
