@@ -92,7 +92,7 @@ fun MovieCard(
                         fontWeight = FontWeight.Bold
                     )
                 }
-            } else if (!movie.quality.isNull_or_blank()) {
+            } else if (!movie.quality.isNullOrBlank() && movie.type != "tv" && movie.quality != "Tv & Web Series") {
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopEnd)

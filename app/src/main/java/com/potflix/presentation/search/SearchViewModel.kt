@@ -9,12 +9,17 @@ import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import android.content.Context
+import dagger.hilt.android.qualifiers.ApplicationContext
 
 @OptIn(FlowPreview::class)
 @HiltViewModel
 class SearchViewModel @Inject constructor(
-    private val repository: MovieRepository
+    private val repository: MovieRepository,
+    @ApplicationContext private val context: Context
 ) : ViewModel() {
+
+    private val prefs = context.getSharedPreferences("search_prefs", Context.MODE_PRIVATE)
 
     private val _searchQuery = MutableStateFlow("")
     val searchQuery = _searchQuery.asStateFlow()
@@ -25,28 +30,40 @@ class SearchViewModel @Inject constructor(
     private val _isLoading = MutableStateFlow(false)
     val isLoading = _isLoading.asStateFlow()
 
-    private val _recentSearches = MutableStateFlow<List<String>>(emptyList())
+    private val _recentSearches = MutableStateFlow<List<String>>(
+        prefs.getString("recent", "")?.split(",")?.filter { it.isNotBlank() } ?: emptyList()
+    )
     val recentSearches = _recentSearches.asStateFlow()
 
+    private val _suggestedMovies = MutableStateFlow<List<Movie>>(emptyList())
+    val suggestedMovies = _suggestedMovies.asStateFlow()
+
     init {
+        // Fetch suggestions for the empty state
+        viewModelScope.launch {
+            repository.getTrendingSuggestions("all")
+                .onSuccess { _suggestedMovies.value = it }
+        }
+
         _searchQuery
             .debounce(500)
-            .filter { it.length >= 2 }
+            .filter { it.isNotEmpty() }
             .onEach { query ->
-                saveRecentSearch(query)
                 performSearch(query)
             }
             .launchIn(viewModelScope)
     }
 
-    private fun saveRecentSearch(query: String) {
+    fun saveRecentSearch(query: String) {
+        if (query.isBlank()) return
         val currentList = _recentSearches.value.toMutableList()
         if (currentList.contains(query)) {
             currentList.remove(query)
         }
         currentList.add(0, query)
-        if (currentList.size > 10) currentList.removeLast()
+        if (currentList.size > 3) currentList.removeLast()
         _recentSearches.value = currentList
+        prefs.edit().putString("recent", currentList.joinToString(",")).apply()
     }
 
     fun onQueryChange(query: String) {

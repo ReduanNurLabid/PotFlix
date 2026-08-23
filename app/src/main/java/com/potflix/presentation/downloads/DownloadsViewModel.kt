@@ -26,49 +26,34 @@ class DownloadsViewModel @Inject constructor(
         initialValue = emptyList()
     )
 
-    fun checkDownloadStatus() {
-        val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-        
-        viewModelScope.launch {
-            downloads.value.forEach { entity ->
-                if (entity.status != DownloadManager.STATUS_SUCCESSFUL) {
-                    val query = DownloadManager.Query().setFilterById(entity.downloadId)
-                    val cursor = downloadManager.query(query)
-                    
-                    if (cursor.moveToFirst()) {
-                        val statusIndex = cursor.getColumnIndex(DownloadManager.COLUMN_STATUS)
-                        val bytesDownloadedIndex = cursor.getColumnIndex(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR)
-                        val bytesTotalIndex = cursor.getColumnIndex(DownloadManager.COLUMN_TOTAL_SIZE_BYTES)
-                        val uriIndex = cursor.getColumnIndex(DownloadManager.COLUMN_LOCAL_URI)
-                        
-                        val status = cursor.getInt(statusIndex)
-                        val bytesDownloaded = cursor.getLong(bytesDownloadedIndex)
-                        val bytesTotal = cursor.getLong(bytesTotalIndex)
-                        val localUri = cursor.getString(uriIndex)
-                        
-                        val progress = if (bytesTotal > 0) (bytesDownloaded * 100 / bytesTotal).toInt() else 0
-                        
-                        if (status != entity.status || progress != entity.progress) {
-                            localDownloadDao.update(
-                                entity.copy(
-                                    status = status,
-                                    progress = progress,
-                                    localUri = localUri ?: entity.localUri
-                                )
-                            )
-                        }
-                    }
-                    cursor.close()
-                }
-            }
-        }
-    }
     fun deleteDownload(downloadId: Long) {
-        val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-        downloadManager.remove(downloadId)
-        
-        viewModelScope.launch(Dispatchers.IO) {
-            localDownloadDao.deleteById(downloadId)
+        val intent = android.content.Intent(context, com.potflix.service.DownloadService::class.java).apply {
+            action = com.potflix.service.DownloadService.ACTION_CANCEL
+            putExtra(com.potflix.service.DownloadService.EXTRA_ID, downloadId)
+        }
+        context.startService(intent)
+    }
+
+    fun pauseDownload(downloadId: Long) {
+        val intent = android.content.Intent(context, com.potflix.service.DownloadService::class.java).apply {
+            action = com.potflix.service.DownloadService.ACTION_PAUSE
+            putExtra(com.potflix.service.DownloadService.EXTRA_ID, downloadId)
+        }
+        context.startService(intent)
+    }
+
+    fun resumeDownload(download: com.potflix.data.local.entity.LocalDownloadEntity) {
+        val intent = android.content.Intent(context, com.potflix.service.DownloadService::class.java).apply {
+            action = com.potflix.service.DownloadService.ACTION_RESUME
+            putExtra(com.potflix.service.DownloadService.EXTRA_ID, download.downloadId)
+            putExtra(com.potflix.service.DownloadService.EXTRA_URL, download.streamUrl)
+            putExtra(com.potflix.service.DownloadService.EXTRA_TITLE, download.title)
+            putExtra(com.potflix.service.DownloadService.EXTRA_POSTER, download.poster)
+        }
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            context.startForegroundService(intent)
+        } else {
+            context.startService(intent)
         }
     }
 }

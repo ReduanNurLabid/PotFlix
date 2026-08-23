@@ -20,14 +20,14 @@ class MoviesViewModel @Inject constructor(
     private val localMovieDao: LocalMovieDao
 ) : ViewModel() {
 
-    private val _categories = MutableStateFlow<List<Category>>(emptyList())
-    val categories = _categories.asStateFlow()
+    private val _genres = MutableStateFlow<List<com.potflix.domain.model.Genre>>(emptyList())
+    val genres = _genres.asStateFlow()
 
     private val _trendingMovies = MutableStateFlow<List<Movie>>(emptyList())
     val trendingMovies = _trendingMovies.asStateFlow()
 
-    private val _categoryMovies = MutableStateFlow<Map<String, List<Movie>>>(emptyMap())
-    val categoryMovies = _categoryMovies.asStateFlow()
+    private val _genreMovies = MutableStateFlow<Map<String, List<Movie>>>(emptyMap())
+    val genreMovies = _genreMovies.asStateFlow()
 
     private val _isLoading = MutableStateFlow(false)
     val isLoading = _isLoading.asStateFlow()
@@ -85,35 +85,30 @@ class MoviesViewModel @Inject constructor(
                     }
                 }
             }
-            
-            repository.getCategories().onSuccess { dbCategories ->
-                val dynamicCategories = mutableListOf<Category>()
-                val dynamicCategoryMovies = mutableMapOf<String, List<Movie>>()
+            repository.getGenres().onSuccess { dbGenres ->
+                val dynamicGenres = mutableListOf<com.potflix.domain.model.Genre>()
+                val dynamicGenreMovies = mutableMapOf<String, List<Movie>>()
                 
-                // Only take categories that are probably movies
-                val movieCategories = dbCategories.filter { 
-                    it.name.contains("movie", ignoreCase = true) || 
-                    it.name.contains("top 250", ignoreCase = true)
-                }
+                val selectedGenres = dbGenres.shuffled().take(7)
                 
-                movieCategories.forEach { category ->
-                    repository.getLatestMovies(category.id).onSuccess { moviesInCat ->
-                        if (moviesInCat.isNotEmpty()) {
-                            val items = moviesInCat.take(15)
-                            dynamicCategories.add(category)
-                            dynamicCategoryMovies[category.id] = items
+                selectedGenres.forEach { genre ->
+                    repository.getMoviesByGenre(genre.id, "movie").onSuccess { moviesInGenre ->
+                        if (moviesInGenre.isNotEmpty()) {
+                            val items = moviesInGenre.take(15)
+                            dynamicGenres.add(genre)
+                            dynamicGenreMovies[genre.id.toString()] = items
                             
                             items.forEach { movie ->
                                 launch {
                                     repository.getMovieDetails(movie).onSuccess { detailedMovie ->
                                         if (detailedMovie.poster != null) {
-                                            val currentMap = _categoryMovies.value.toMutableMap()
-                                            val currentList = currentMap[category.id]?.toMutableList() ?: return@launch
+                                            val currentMap = _genreMovies.value.toMutableMap()
+                                            val currentList = currentMap[genre.id.toString()]?.toMutableList() ?: return@launch
                                             val index = currentList.indexOfFirst { it.url == movie.url }
                                             if (index != -1) {
                                                 currentList[index] = detailedMovie
-                                                currentMap[category.id] = currentList
-                                                _categoryMovies.value = currentMap
+                                                currentMap[genre.id.toString()] = currentList
+                                                _genreMovies.value = currentMap
                                             }
                                         }
                                     }
@@ -123,8 +118,8 @@ class MoviesViewModel @Inject constructor(
                     }
                 }
                 
-                _categories.value = dynamicCategories
-                _categoryMovies.value = dynamicCategoryMovies
+                _genres.value = dynamicGenres
+                _genreMovies.value = dynamicGenreMovies
             }
             _isLoading.value = false
         }

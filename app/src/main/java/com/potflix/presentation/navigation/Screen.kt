@@ -8,11 +8,11 @@ sealed class Screen(val route: String) {
     object Settings : Screen("settings")
     object Downloads : Screen("downloads")
     object Watchlist : Screen("watchlist")
-    object CategoryDetail : Screen("category/{categoryId}/{categoryName}") {
-        fun createRoute(categoryId: String, categoryName: String): String {
+    object CategoryDetail : Screen("category/{categoryId}/{categoryName}?type={type}") {
+        fun createRoute(categoryId: String, categoryName: String, type: String = "category"): String {
             val encodedId = android.net.Uri.encode(categoryId)
             val encodedName = android.net.Uri.encode(categoryName)
-            return "category/$encodedId/$encodedName"
+            return "category/$encodedId/$encodedName?type=$type"
         }
     }
     object Detail : Screen("detail/{movieJson}") {

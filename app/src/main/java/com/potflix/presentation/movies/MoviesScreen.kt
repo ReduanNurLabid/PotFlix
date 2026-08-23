@@ -28,6 +28,7 @@ import com.potflix.R
 import com.potflix.presentation.home.components.CategoryRow
 import com.potflix.presentation.home.components.HeroBanner
 import com.potflix.presentation.home.components.Top10Row
+import com.potflix.presentation.common.shimmerEffect
 import com.potflix.presentation.navigation.Screen
 
 @Composable
@@ -35,30 +36,25 @@ fun MoviesScreen(
     navController: NavController,
     viewModel: MoviesViewModel = hiltViewModel()
 ) {
-    val categories by viewModel.categories.collectAsState()
+    val genres by viewModel.genres.collectAsState()
     val trendingMovies by viewModel.trendingMovies.collectAsState()
-    val categoryMovies by viewModel.categoryMovies.collectAsState()
+    val genreMovies by viewModel.genreMovies.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val isHeroInWatchlist by viewModel.isHeroInWatchlist.collectAsState()
-
-    var selectedGenre by remember { mutableStateOf("All") }
-    val genreChips = listOf("All", "English", "1080p", "Hindi", "South Indian", "Animation", "IMDb Top 250", "3D")
 
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFF0A0A0A))
     ) {
-        if (isLoading && categories.isEmpty()) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+        if (isLoading && genres.isEmpty()) {
+            Box(modifier = Modifier.padding(top = 90.dp)) {
+                ScreenSkeleton()
             }
         } else {
             LazyColumn(
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(top = 90.dp)
             ) {
                 // Hero Banner
                 if (trendingMovies.isNotEmpty()) {
@@ -84,7 +80,7 @@ fun MoviesScreen(
                 if (trendingMovies.size > 1) {
                     item {
                         Top10Row(
-                            title = "In Cinemas",
+                            title = "Trending Now",
                             movies = trendingMovies.drop(1),
                             onMovieClick = { movie ->
                                 navController.navigate(Screen.Detail.createRoute(movie))
@@ -93,18 +89,28 @@ fun MoviesScreen(
                     }
                 }
 
-                // Movie Category Rows
-                items(categories) { category ->
-                    val movies = categoryMovies[category.id] ?: emptyList()
+                // Genre Rows
+                items(
+                    items = genres,
+                    key = { it.id },
+                    contentType = { "genreRow" }
+                ) { genre ->
+                    val movies = genreMovies[genre.id.toString()] ?: emptyList()
                     if (movies.isNotEmpty()) {
                         CategoryRow(
-                            category = category,
+                            category = com.potflix.domain.model.Category(
+                                id = genre.id.toString(), 
+                                name = genre.name, 
+                                type = "genre", 
+                                url = "", 
+                                icon = ""
+                            ),
                             movies = movies,
                             onMovieClick = { movie ->
                                 navController.navigate(Screen.Detail.createRoute(movie))
                             },
                             onSeeAllClick = {
-                                navController.navigate(Screen.CategoryDetail.createRoute(category.id, category.name))
+                                navController.navigate(Screen.CategoryDetail.createRoute(genre.id.toString(), genre.name, "genre_movie"))
                             }
                         )
                     }
@@ -148,13 +154,13 @@ fun MoviesScreen(
                     Image(
                         painter = painterResource(id = R.drawable.ic_potflix_logo),
                         contentDescription = "PotFlix",
-                        modifier = Modifier.height(32.dp)
+                        modifier = Modifier.height(40.dp)
                     )
                     Text(
                         text = "Movies",
                         style = MaterialTheme.typography.titleLarge.copy(
                             fontWeight = FontWeight.ExtraBold,
-                            fontSize = 20.sp
+                            fontSize = 26.sp
                         ),
                         color = Color.White
                     )
@@ -169,13 +175,53 @@ fun MoviesScreen(
                             imageVector = Icons.Default.Search,
                             contentDescription = "Search",
                             tint = Color.White,
-                            modifier = Modifier.size(24.dp)
+                            modifier = Modifier.size(32.dp)
                         )
                     }
                 }
             }
 
 
+        }
+    }
+}
+
+@Composable
+fun ScreenSkeleton() {
+    Column(modifier = Modifier.fillMaxSize()) {
+        // Hero skeleton
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(450.dp)
+                .shimmerEffect()
+        )
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        // Rows
+        repeat(3) {
+            Box(
+                modifier = Modifier
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .width(120.dp)
+                    .height(24.dp)
+                    .shimmerEffect()
+            )
+            androidx.compose.foundation.lazy.LazyRow(
+                contentPadding = PaddingValues(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(5) {
+                    Box(
+                        modifier = Modifier
+                            .width(110.dp)
+                            .height(160.dp)
+                            .shimmerEffect()
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 }

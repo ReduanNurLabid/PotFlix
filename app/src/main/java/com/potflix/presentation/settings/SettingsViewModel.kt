@@ -23,8 +23,7 @@ data class AppUpdate(
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
-    private val application: Application,
-    private val syncManager: com.potflix.data.sync.CatalogSyncManager
+    private val application: Application
 ) : ViewModel() {
 
     private val _cacheSize = MutableStateFlow("Calculating...")
@@ -36,15 +35,46 @@ class SettingsViewModel @Inject constructor(
     private val _toastMessage = MutableStateFlow<String?>(null)
     val toastMessage: StateFlow<String?> = _toastMessage.asStateFlow()
 
-    val isSyncing = syncManager.isSyncing
-    val syncProgress = syncManager.syncProgress
+    val isSyncing = MutableStateFlow(false)
+    val syncProgress = MutableStateFlow("Starting sync...")
     
     private val _lastSyncTime = MutableStateFlow("Never")
     val lastSyncTime: StateFlow<String> = _lastSyncTime.asStateFlow()
 
+    private var wasSyncing = false
+
     init {
         calculateCacheSize()
         fetchLastSyncTime()
+        observeWorkManager()
+    }
+    
+    private fun observeWorkManager() {
+        androidx.work.WorkManager.getInstance(application)
+            .getWorkInfosForUniqueWorkLiveData("ManualSync")
+            .observeForever { workInfos ->
+                if (workInfos.isNullOrEmpty()) return@observeForever
+                val workInfo = workInfos[0]
+                
+                isSyncing.value = workInfo.state == androidx.work.WorkInfo.State.RUNNING || 
+                                  workInfo.state == androidx.work.WorkInfo.State.ENQUEUED
+                                  
+                if (workInfo.state == androidx.work.WorkInfo.State.RUNNING) {
+                    syncProgress.value = "Scanning servers for new content..."
+                }
+                
+                if (workInfo.state == androidx.work.WorkInfo.State.SUCCEEDED) {
+                    syncProgress.value = "Sync complete"
+                    if (wasSyncing) {
+                        _toastMessage.value = "Database Sync Complete!"
+                        // Update last sync time
+                        val prefs = application.getSharedPreferences("potflix_prefs", Context.MODE_PRIVATE)
+                        prefs.edit().putLong("last_sync_time", System.currentTimeMillis()).apply()
+                        fetchLastSyncTime()
+                    }
+                }
+                wasSyncing = isSyncing.value
+            }
     }
     
     fun fetchLastSyncTime() {
@@ -59,11 +89,9 @@ class SettingsViewModel @Inject constructor(
     }
     
     fun syncDatabase() {
-        viewModelScope.launch {
-            syncManager.syncCatalog()
-            fetchLastSyncTime()
-            _toastMessage.value = "Database Sync Complete!"
-        }
+        val workRequest = androidx.work.OneTimeWorkRequestBuilder<com.potflix.worker.SyncWorker>().build()
+        androidx.work.WorkManager.getInstance(application)
+            .enqueueUniqueWork("ManualSync", androidx.work.ExistingWorkPolicy.REPLACE, workRequest)
     }
 
     fun clearToastMessage() {

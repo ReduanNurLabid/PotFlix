@@ -50,7 +50,11 @@ fun Top10Row(
             contentPadding = PaddingValues(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            itemsIndexed(movies.take(10)) { index, movie ->
+            itemsIndexed(
+                items = movies.take(10),
+                key = { _, movie -> movie.url },
+                contentType = { _, _ -> "top10Item" }
+            ) { index, movie ->
                 Top10Item(
                     rank = index + 1,
                     movie = movie,

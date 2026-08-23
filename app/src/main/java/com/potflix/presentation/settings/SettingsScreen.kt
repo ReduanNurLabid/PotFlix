@@ -83,7 +83,7 @@ fun SettingsScreen(
                 val lastSyncTime by viewModel.lastSyncTime.collectAsState()
                 
                 SettingsClickableItem(
-                    icon = androidx.compose.material.icons.Icons.Default.Refresh,
+                    icon = androidx.compose.material.icons.Icons.Default.Done,
                     title = if (isSyncing) "Syncing Database..." else "Sync Database",
                     subtitle = if (isSyncing) syncProgress else "Last synced: $lastSyncTime",
                     onClick = { if (!isSyncing) viewModel.syncDatabase() },
@@ -110,16 +110,7 @@ fun SettingsScreen(
                 SettingsSectionTitle("About")
             }
             
-            if (isDeveloperMode) {
-                item {
-                    SettingsClickableItem(
-                        icon = androidx.compose.material.icons.Icons.Default.Done,
-                        title = "Export Pre-Packaged Database",
-                        subtitle = "Saves potflix_db to your phone's Downloads folder",
-                        onClick = { viewModel.exportDatabase() }
-                    )
-                }
-            }
+            // Removed Export Pre-Packaged Database section
             
             item {
                 val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
@@ -196,9 +187,16 @@ fun SettingsScreen(
                 }
             },
             confirmButton = {
+                val context = androidx.compose.ui.platform.LocalContext.current
                 Button(
                     onClick = {
-                        uriHandler.openUri(update.apkUrl)
+                        try {
+                            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(update.apkUrl))
+                            intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                            context.startActivity(intent)
+                        } catch (e: Exception) {
+                            android.widget.Toast.makeText(context, "Could not open browser to download update", android.widget.Toast.LENGTH_SHORT).show()
+                        }
                         viewModel.dismissUpdateDialog()
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)

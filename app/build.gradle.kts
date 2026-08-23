@@ -24,8 +24,8 @@ android {
         applicationId = "com.potflix"
         minSdk = 24
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.0.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -37,6 +37,7 @@ android {
 
     buildTypes {
         release {
+            signingConfig = signingConfigs.getByName("debug")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
@@ -93,10 +94,8 @@ dependencies {
     // Coil
     implementation(libs.coil.compose)
 
-    // Media3
-    implementation(libs.androidx.media3.exoplayer)
-    implementation(libs.androidx.media3.ui)
-    implementation(libs.androidx.media3.session)
+    // LibVLC
+    implementation("org.videolan.android:libvlc-all:3.5.1")
 
     // Room
     implementation(libs.androidx.room.runtime)
@@ -113,6 +112,8 @@ dependencies {
     // Hilt
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
+    implementation("androidx.hilt:hilt-work:1.2.0")
+    ksp("androidx.hilt:hilt-compiler:1.2.0")
     implementation(libs.androidx.hilt.navigation.compose)
 
     // Testing

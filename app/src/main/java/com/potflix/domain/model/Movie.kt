@@ -18,5 +18,11 @@ data class Movie(
     val language: String? = null,
     val runtime: Int? = null,
     val categoryId: String? = null,
-    val tmdbId: Int? = null
+    val tmdbId: Int? = null,
+    val videos: List<VideoSource>? = null
+)
+
+data class VideoSource(
+    val quality: String,
+    val url: String
 )

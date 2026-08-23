@@ -14,11 +14,14 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
 import com.potflix.util.DownloadHelper
 import javax.inject.Inject
 
 import android.content.Context
+import android.app.DownloadManager
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.delay
 
 @HiltViewModel
 class DetailViewModel @Inject constructor(
@@ -64,6 +67,12 @@ class DetailViewModel @Inject constructor(
         _selectedSeasonIndex.value = index
     }
 
+    fun onPlayStarted() {
+        viewModelScope.launch {
+            repository.addToWatchHistory(initialMovie)
+        }
+    }
+
     fun saveLastPlayedEpisode(episodeUrl: String) {
         prefs.edit().putString("last_played_${initialMovie.url}", episodeUrl).apply()
         _lastPlayedEpisodeUrl.value = episodeUrl
@@ -80,22 +89,52 @@ class DetailViewModel @Inject constructor(
     }
 
     private fun loadDetails() {
-        viewModelScope.launch {
-            _isLoading.value = true
-            
-            // Fetch TMDB metadata
-            var currentMovie = initialMovie
-            repository.getMovieDetails(initialMovie).onSuccess {
-                currentMovie = it
-                _movie.value = it
+        _isLoading.value = true
+        
+        // 1. Immediately fetch play URLs / Episodes to unblock the UI instantly
+        if (initialMovie.type == "tv") {
+            viewModelScope.launch {
+                repository.getSeriesEpisodes(initialMovie.url).onSuccess { rawSeasons ->
+                    _seasons.value = rawSeasons
+                    
+                    val lastUrl = _lastPlayedEpisodeUrl.value
+                    if (lastUrl != null) {
+                        val seasonIdx = rawSeasons.indexOfFirst { s -> s.episodes.any { it.url == lastUrl } }
+                        if (seasonIdx != -1) {
+                            _selectedSeasonIndex.value = seasonIdx
+                        }
+                    }
+                    _isLoading.value = false // We can show the raw episodes immediately
+                }.onFailure { 
+                    _isLoading.value = false
+                }
             }
-            
-            // Fetch seasons if it's a TV series
-            if (currentMovie.type == "tv") {
-                repository.getSeriesEpisodes(currentMovie.url).onSuccess { rawSeasons ->
-                    val tmdbId = currentMovie.tmdbId
+        } else {
+            // It's a movie, load stream URL instantly
+            viewModelScope.launch {
+                repository.getMovieStreamUrl(initialMovie.url).onSuccess { streamUrl ->
+                    _movie.value = _movie.value?.copy(url = streamUrl)
+                    _isLoading.value = false
+                }.onFailure { err ->
+                    _streamError.value = err.message ?: "Unknown error loading stream"
+                    _isLoading.value = false
+                }
+            }
+        }
+
+        // 2. Fetch TMDB metadata slowly in the background
+        viewModelScope.launch {
+            repository.getMovieDetails(initialMovie).onSuccess { enrichedMovie ->
+                // Preserve streamUrl if it was already updated by the instant loader
+                val currentStreamUrl = _movie.value?.url ?: enrichedMovie.url
+                _movie.value = enrichedMovie.copy(url = currentStreamUrl)
+                
+                // If it's a TV series, kick off episode enrichment using the newly found tmdbId
+                if (enrichedMovie.type == "tv") {
+                    val tmdbId = enrichedMovie.tmdbId
                     if (tmdbId != null) {
-                        val mergedSeasons = rawSeasons.map { season ->
+                        val enrichedSeasons = _seasons.value.toMutableList()
+                        for ((index, season) in enrichedSeasons.withIndex()) {
                             val tmdbSeasonResult = repository.getTmdbSeasonDetails(tmdbId, season.number)
                             if (tmdbSeasonResult.isSuccess) {
                                 val tmdbSeason = tmdbSeasonResult.getOrNull()
@@ -111,41 +150,13 @@ class DetailViewModel @Inject constructor(
                                         rawEpisode
                                     }
                                 }
-                                season.copy(episodes = newEpisodes)
-                            } else {
-                                season
-                            }
-                        }
-                        _seasons.value = mergedSeasons
-                        
-                        val lastUrl = _lastPlayedEpisodeUrl.value
-                        if (lastUrl != null) {
-                            val seasonIdx = mergedSeasons.indexOfFirst { s -> s.episodes.any { it.url == lastUrl } }
-                            if (seasonIdx != -1) {
-                                _selectedSeasonIndex.value = seasonIdx
-                            }
-                        }
-                    } else {
-                        _seasons.value = rawSeasons
-                        val lastUrl = _lastPlayedEpisodeUrl.value
-                        if (lastUrl != null) {
-                            val seasonIdx = rawSeasons.indexOfFirst { s -> s.episodes.any { it.url == lastUrl } }
-                            if (seasonIdx != -1) {
-                                _selectedSeasonIndex.value = seasonIdx
+                                enrichedSeasons[index] = season.copy(episodes = newEpisodes)
+                                _seasons.value = enrichedSeasons.toList()
                             }
                         }
                     }
                 }
-            } else {
-                // It's a movie, so initialMovie.url is likely a folder. We need to find the video file inside.
-                repository.getMovieStreamUrl(currentMovie.url).onSuccess { streamUrl ->
-                    _movie.value = _movie.value?.copy(url = streamUrl)
-                }.onFailure { err ->
-                    _streamError.value = err.message ?: "Unknown error loading stream"
-                }
             }
-
-            _isLoading.value = false
         }
     }
 

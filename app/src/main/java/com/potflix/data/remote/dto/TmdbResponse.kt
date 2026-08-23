@@ -17,7 +17,8 @@ data class TmdbMovieDto(
     @SerializedName("vote_average") val voteAverage: Double?,
     @SerializedName("release_date") val releaseDate: String?,
     @SerializedName("first_air_date") val firstAirDate: String?,
-    @SerializedName("genre_ids") val genreIds: List<Int>?
+    @SerializedName("genre_ids") val genreIds: List<Int>?,
+    @SerializedName("original_language") val originalLanguage: String?
 )
 
 data class TmdbVideoResponse(

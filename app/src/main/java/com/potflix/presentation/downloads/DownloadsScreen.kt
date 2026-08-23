@@ -24,22 +24,16 @@ import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.potflix.data.local.entity.LocalDownloadEntity
 import com.potflix.presentation.navigation.Screen
-import kotlinx.coroutines.delay
+import com.potflix.service.DownloadService
+import androidx.compose.ui.graphics.Color
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DownloadsScreen(
     navController: NavController,
-    viewModel: DownloadsViewModel = hiltViewModel()
+    viewModel: DownloadsViewModel = androidx.hilt.navigation.compose.hiltViewModel()
 ) {
     val downloads by viewModel.downloads.collectAsState()
-
-    LaunchedEffect(Unit) {
-        while(true) {
-            viewModel.checkDownloadStatus()
-            delay(2000)
-        }
-    }
 
     Scaffold(
         topBar = {
@@ -77,7 +71,7 @@ fun DownloadsScreen(
 fun DownloadItemCard(download: LocalDownloadEntity, navController: NavController, viewModel: DownloadsViewModel) {
     Card(
         modifier = Modifier.fillMaxWidth().clickable {
-            if (download.status == DownloadManager.STATUS_SUCCESSFUL && download.localUri != null) {
+            if (download.status == DownloadService.STATUS_SUCCESSFUL && download.localUri != null) {
                 navController.navigate(Screen.Player.createRoute(download.localUri, download.title))
             }
         },
@@ -98,17 +92,25 @@ fun DownloadItemCard(download: LocalDownloadEntity, navController: NavController
                 Text(
                     text = download.title,
                     style = MaterialTheme.typography.titleMedium,
-                    maxLines = 2,
+                    maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(4.dp))
                 
                 when (download.status) {
-                    DownloadManager.STATUS_SUCCESSFUL -> {
+                    DownloadService.STATUS_SUCCESSFUL -> {
                         Text("Completed", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall)
                     }
-                    DownloadManager.STATUS_FAILED -> {
+                    DownloadService.STATUS_FAILED -> {
                         Text("Failed", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                    }
+                    DownloadService.STATUS_PAUSED -> {
+                        LinearProgressIndicator(
+                            progress = { download.progress / 100f },
+                            modifier = Modifier.fillMaxWidth().height(4.dp)
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text("Paused - ${download.progress}%", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
                     }
                     else -> {
                         LinearProgressIndicator(
@@ -116,7 +118,15 @@ fun DownloadItemCard(download: LocalDownloadEntity, navController: NavController
                             modifier = Modifier.fillMaxWidth().height(4.dp)
                         )
                         Spacer(modifier = Modifier.height(4.dp))
-                        Text("${download.progress}%", style = MaterialTheme.typography.bodySmall)
+                        
+                        val speedMb = download.speedBytesPerSecond / (1024f * 1024f)
+                        val speedText = String.format("%.1f MB/s", speedMb)
+                        val etaText = if (download.etaSeconds > 60) "${download.etaSeconds / 60}m ${download.etaSeconds % 60}s" else "${download.etaSeconds}s"
+                        
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("${download.progress}%", style = MaterialTheme.typography.bodySmall)
+                            Text("$speedText • ETA: $etaText", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                        }
                     }
                 }
             }
@@ -126,7 +136,7 @@ fun DownloadItemCard(download: LocalDownloadEntity, navController: NavController
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                if (download.status == DownloadManager.STATUS_SUCCESSFUL) {
+                if (download.status == DownloadService.STATUS_SUCCESSFUL) {
                     IconButton(onClick = { 
                         if (download.localUri != null) {
                             navController.navigate(Screen.Player.createRoute(download.localUri, download.title))
@@ -134,7 +144,16 @@ fun DownloadItemCard(download: LocalDownloadEntity, navController: NavController
                     }) {
                         Icon(Icons.Default.PlayArrow, contentDescription = "Play", tint = MaterialTheme.colorScheme.primary)
                     }
+                } else if (download.status == DownloadService.STATUS_RUNNING) {
+                    IconButton(onClick = { viewModel.pauseDownload(download.downloadId) }) {
+                        Icon(painter = androidx.compose.ui.res.painterResource(id = android.R.drawable.ic_media_pause), contentDescription = "Pause")
+                    }
+                } else if (download.status == DownloadService.STATUS_PAUSED || download.status == DownloadService.STATUS_FAILED) {
+                    IconButton(onClick = { viewModel.resumeDownload(download) }) {
+                        Icon(painter = androidx.compose.ui.res.painterResource(id = android.R.drawable.ic_media_play), contentDescription = "Resume")
+                    }
                 }
+                
                 IconButton(onClick = { viewModel.deleteDownload(download.downloadId) }) {
                     Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
                 }

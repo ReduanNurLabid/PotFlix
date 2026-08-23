@@ -22,7 +22,7 @@ object DatabaseModule {
             PotFlixDatabase::class.java,
             PotFlixDatabase.DATABASE_NAME
         )
-            .createFromAsset("database/potflix_db")
+            .createFromAsset("databases/movies.db")
             .fallbackToDestructiveMigration()
             .build()
     }

@@ -1,6 +1,6 @@
 package com.potflix.di
 
-import com.potflix.data.repository.LocalScraperRepositoryImpl
+import com.potflix.data.repository.MovieRepositoryImpl
 import com.potflix.domain.repository.MovieRepository
 import dagger.Binds
 import dagger.Module
@@ -15,6 +15,6 @@ abstract class AppModule {
     @Binds
     @Singleton
     abstract fun bindMovieRepository(
-        localScraperRepositoryImpl: LocalScraperRepositoryImpl
+        movieRepositoryImpl: MovieRepositoryImpl
     ): MovieRepository
 }

@@ -28,6 +28,7 @@ import com.potflix.R
 import com.potflix.presentation.home.components.CategoryRow
 import com.potflix.presentation.home.components.HeroBanner
 import com.potflix.presentation.home.components.Top10Row
+import com.potflix.presentation.common.shimmerEffect
 import com.potflix.presentation.navigation.Screen
 
 @Composable
@@ -35,42 +36,37 @@ fun TvSeriesScreen(
     navController: NavController,
     viewModel: TvSeriesViewModel = hiltViewModel()
 ) {
-    val categories by viewModel.categories.collectAsState()
-    val trendingSeries by viewModel.trendingSeries.collectAsState()
-    val categorySeries by viewModel.categorySeries.collectAsState()
+    val genres by viewModel.genres.collectAsState()
+    val trendingSeries by viewModel.trendingTv.collectAsState()
+    val genreSeries by viewModel.genreTv.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val isHeroInWatchlist by viewModel.isHeroInWatchlist.collectAsState()
-
-    var selectedGenre by remember { mutableStateOf("All") }
-    val tvChips = listOf("All", "Web Series", "Korean Dramas", "Anime", "Cartoons", "WWE", "Award Shows")
 
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFF0A0A0A))
     ) {
-        if (isLoading && categories.isEmpty()) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+        if (isLoading && genres.isEmpty()) {
+            Box(modifier = Modifier.padding(top = 90.dp)) {
+                ScreenSkeleton()
             }
         } else {
             LazyColumn(
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(top = 90.dp, bottom = 100.dp)
             ) {
                 // Hero Banner
                 if (trendingSeries.isNotEmpty()) {
                     item {
-                        val heroSeries = trendingSeries.first()
+                        val heroMovie = trendingSeries.first()
                         HeroBanner(
-                            movie = heroSeries,
+                            movie = heroMovie,
                             onPlayClick = {
-                                navController.navigate(Screen.Detail.createRoute(heroSeries))
+                                navController.navigate(Screen.Detail.createRoute(heroMovie))
                             },
                             onInfoClick = {
-                                navController.navigate(Screen.Detail.createRoute(heroSeries))
+                                navController.navigate(Screen.Detail.createRoute(heroMovie))
                             },
                             onMyListClick = {
                                 viewModel.toggleHeroWatchlist()
@@ -80,31 +76,41 @@ fun TvSeriesScreen(
                     }
                 }
 
-                // Top 10 TV Shows Row
+                // Top 10 Series Row
                 if (trendingSeries.size > 1) {
                     item {
                         Top10Row(
-                            title = "Trending TV Shows",
+                            title = "Trending Now",
                             movies = trendingSeries.drop(1),
-                            onMovieClick = { series ->
-                                navController.navigate(Screen.Detail.createRoute(series))
+                            onMovieClick = { movie ->
+                                navController.navigate(Screen.Detail.createRoute(movie))
                             }
                         )
                     }
                 }
 
-                // Category Rows
-                items(categories) { category ->
-                    val series = categorySeries[category.id] ?: emptyList()
-                    if (series.isNotEmpty()) {
+                // Genre Rows
+                items(
+                    items = genres,
+                    key = { it.id },
+                    contentType = { "genreRow" }
+                ) { genre ->
+                    val seriesList = genreSeries[genre.id.toString()] ?: emptyList()
+                    if (seriesList.isNotEmpty()) {
                         CategoryRow(
-                            category = category,
-                            movies = series,
-                            onMovieClick = { s ->
-                                navController.navigate(Screen.Detail.createRoute(s))
+                            category = com.potflix.domain.model.Category(
+                                id = genre.id.toString(), 
+                                name = genre.name, 
+                                type = "genre", 
+                                url = "", 
+                                icon = ""
+                            ),
+                            movies = seriesList,
+                            onMovieClick = { movie ->
+                                navController.navigate(Screen.Detail.createRoute(movie))
                             },
                             onSeeAllClick = {
-                                navController.navigate(Screen.CategoryDetail.createRoute(category.id, category.name))
+                                navController.navigate(Screen.CategoryDetail.createRoute(genre.id.toString(), genre.name, "genre_tv"))
                             }
                         )
                     }
@@ -148,13 +154,13 @@ fun TvSeriesScreen(
                     Image(
                         painter = painterResource(id = R.drawable.ic_potflix_logo),
                         contentDescription = "PotFlix",
-                        modifier = Modifier.height(32.dp)
+                        modifier = Modifier.height(40.dp)
                     )
                     Text(
                         text = "TV Series",
                         style = MaterialTheme.typography.titleLarge.copy(
                             fontWeight = FontWeight.ExtraBold,
-                            fontSize = 20.sp
+                            fontSize = 26.sp
                         ),
                         color = Color.White
                     )
@@ -169,11 +175,51 @@ fun TvSeriesScreen(
                             imageVector = Icons.Default.Search,
                             contentDescription = "Search",
                             tint = Color.White,
-                            modifier = Modifier.size(24.dp)
+                            modifier = Modifier.size(32.dp)
                         )
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun ScreenSkeleton() {
+    Column(modifier = Modifier.fillMaxSize()) {
+        // Hero skeleton
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(450.dp)
+                .shimmerEffect()
+        )
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        // Rows
+        repeat(3) {
+            Box(
+                modifier = Modifier
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .width(120.dp)
+                    .height(24.dp)
+                    .shimmerEffect()
+            )
+            androidx.compose.foundation.lazy.LazyRow(
+                contentPadding = PaddingValues(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(5) {
+                    Box(
+                        modifier = Modifier
+                            .width(110.dp)
+                            .height(160.dp)
+                            .shimmerEffect()
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 }

@@ -19,7 +19,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -46,6 +48,7 @@ fun HomeScreen(
     val syncProgress by viewModel.syncProgress.collectAsState()
     val isHeroInWatchlist by viewModel.isHeroInWatchlist.collectAsState()
     val toastMessage by viewModel.toastMessage.collectAsState()
+    val watchHistory by viewModel.watchHistory.collectAsState(initial = emptyList())
     val context = androidx.compose.ui.platform.LocalContext.current
 
     LaunchedEffect(toastMessage) {
@@ -64,7 +67,10 @@ fun HomeScreen(
             .background(Color(0xFF0A0A0A))
     ) {
         if (isLoading && categories.isEmpty()) {
-            LazyColumn(modifier = Modifier.fillMaxSize()) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(top = 90.dp)
+            ) {
                 item {
                     // Hero Banner Shimmer
                     Box(
@@ -96,7 +102,8 @@ fun HomeScreen(
             }
         } else {
             LazyColumn(
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(top = 90.dp)
             ) {
                 // Hero Banner
                 if (trendingMovies.isNotEmpty()) {
@@ -117,6 +124,20 @@ fun HomeScreen(
                         )
                     }
                 }
+                
+                // Continue Watching Row
+                if (watchHistory.isNotEmpty()) {
+                    item {
+                        CategoryRow(
+                            category = Category("history", "Continue Watching", "", "", "🕒"),
+                            movies = watchHistory,
+                            onMovieClick = { movie ->
+                                navController.navigate(Screen.Detail.createRoute(movie))
+                            },
+                            onSeeAllClick = { } // Hide or do nothing for history see all for now
+                        )
+                    }
+                }
 
                 // Top 10 Ranked Row
                 if (trendingMovies.size > 1) {
@@ -132,7 +153,11 @@ fun HomeScreen(
                 }
 
                 // Filtered Categories or All Categories
-                items(categories) { category ->
+                items(
+                    items = categories,
+                    key = { it.id },
+                    contentType = { "categoryRow" }
+                ) { category ->
                     val movies = categoryMovies[category.id] ?: emptyList()
                     if (movies.isNotEmpty()) {
                         CategoryRow(
@@ -184,13 +209,19 @@ fun HomeScreen(
                     Image(
                         painter = painterResource(id = R.drawable.ic_potflix_logo),
                         contentDescription = "PotFlix Logo",
-                        modifier = Modifier.height(30.dp)
+                        modifier = Modifier.height(40.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "PotFlix",
-                        color = Color.White,
-                        fontSize = 20.sp,
+                        text = buildAnnotatedString {
+                            withStyle(style = androidx.compose.ui.text.SpanStyle(color = Color.White)) {
+                                append("POT")
+                            }
+                            withStyle(style = androidx.compose.ui.text.SpanStyle(color = Color(0xFFE50914))) {
+                                append("FLIX")
+                            }
+                        },
+                        fontSize = 26.sp,
                         fontWeight = FontWeight.ExtraBold,
                         letterSpacing = 0.5.sp
                     )
@@ -206,7 +237,7 @@ fun HomeScreen(
                             imageVector = Icons.Default.Search,
                             contentDescription = "Search",
                             tint = Color.White,
-                            modifier = Modifier.size(24.dp)
+                            modifier = Modifier.size(32.dp)
                         )
                     }
                 }

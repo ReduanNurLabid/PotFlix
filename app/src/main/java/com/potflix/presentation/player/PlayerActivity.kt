@@ -1,41 +1,39 @@
 package com.potflix.presentation.player
 
+import android.content.res.Configuration
 import android.os.Bundle
+import android.view.SurfaceView
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.annotation.OptIn
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.clickable
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.List
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.media3.common.MediaItem
-import androidx.media3.common.util.UnstableApi
-import androidx.media3.datasource.DefaultHttpDataSource
-import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
-import androidx.media3.ui.PlayerView
 import com.potflix.presentation.theme.PotFlixTheme
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.delay
+import org.videolan.libvlc.LibVLC
+import org.videolan.libvlc.Media
+import org.videolan.libvlc.MediaPlayer
+import org.videolan.libvlc.util.VLCVideoLayout
+import android.net.Uri
 
 @AndroidEntryPoint
 class PlayerActivity : ComponentActivity() {
@@ -50,7 +48,7 @@ class PlayerActivity : ComponentActivity() {
 
         setContent {
             PotFlixTheme {
-                VideoPlayer(streamUrl = streamUrl, title = title, isPipMode = _isInPipMode.value)
+                VlcVideoPlayer(streamUrl = streamUrl, title = title, isPipMode = _isInPipMode.value)
             }
         }
     }
@@ -65,18 +63,16 @@ class PlayerActivity : ComponentActivity() {
         }
     }
 
-    override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: android.content.res.Configuration) {
+    override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration) {
         super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
         _isInPipMode.value = isInPictureInPictureMode
     }
 }
 
-@OptIn(UnstableApi::class)
 @Composable
-fun VideoPlayer(streamUrl: String, title: String, isPipMode: Boolean = false) {
+fun VlcVideoPlayer(streamUrl: String, title: String, isPipMode: Boolean = false) {
     val context = LocalContext.current
     var subtitleUrl by remember { mutableStateOf<String?>(null) }
-    var resizeMode by remember { mutableStateOf(androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT) }
     
     // Fetch Subtitles
     LaunchedEffect(streamUrl) {
@@ -94,43 +90,29 @@ fun VideoPlayer(streamUrl: String, title: String, isPipMode: Boolean = false) {
             e.printStackTrace()
         }
     }
-    
-    val trackSelector = remember { androidx.media3.exoplayer.trackselection.DefaultTrackSelector(context) }
-    
-    val exoPlayer = remember {
-        val renderersFactory = androidx.media3.exoplayer.DefaultRenderersFactory(context)
-            .setEnableDecoderFallback(true)
-            .setExtensionRendererMode(androidx.media3.exoplayer.DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
-            
-        val extractorsFactory = androidx.media3.extractor.DefaultExtractorsFactory()
-            .setConstantBitrateSeekingEnabled(true)
-            
-        ExoPlayer.Builder(context, renderersFactory)
-            .setTrackSelector(trackSelector)
-            .setMediaSourceFactory(
-                DefaultMediaSourceFactory(context, extractorsFactory)
-                    .setDataSourceFactory(
-                        DefaultHttpDataSource.Factory().setUserAgent("PotFlix-Android/1.0")
-                    )
-            )
-            .build()
-    }
+
+    val libVLC = remember { LibVLC(context, ArrayList<String>().apply { add("--drop-late-frames") }) }
+    val mediaPlayer = remember { MediaPlayer(libVLC) }
 
     LaunchedEffect(streamUrl, subtitleUrl) {
-        val mediaItemBuilder = MediaItem.Builder().setUri(streamUrl)
+        val media = if (streamUrl.startsWith("/")) {
+            Media(libVLC, streamUrl)
+        } else {
+            Media(libVLC, Uri.parse(streamUrl))
+        }
+        media.setHWDecoderEnabled(true, false)
         
         if (subtitleUrl != null) {
-            val subtitle = MediaItem.SubtitleConfiguration.Builder(android.net.Uri.parse(subtitleUrl))
-                .setMimeType(androidx.media3.common.MimeTypes.APPLICATION_SUBRIP)
-                .setLanguage("en")
-                .setSelectionFlags(androidx.media3.common.C.SELECTION_FLAG_DEFAULT)
-                .build()
-            mediaItemBuilder.setSubtitleConfigurations(listOf(subtitle))
+            media.addSlave(org.videolan.libvlc.interfaces.IMedia.Slave(
+                org.videolan.libvlc.interfaces.IMedia.Slave.Type.Subtitle, 
+                4, 
+                subtitleUrl
+            )) // 4 = SLAVE_PRIORITY_USER
         }
         
-        exoPlayer.setMediaItem(mediaItemBuilder.build())
-        exoPlayer.prepare()
-        exoPlayer.playWhenReady = true
+        mediaPlayer.media = media
+        media.release()
+        mediaPlayer.play()
     }
 
     var isPlaying by remember { mutableStateOf(true) }
@@ -138,95 +120,82 @@ fun VideoPlayer(streamUrl: String, title: String, isPipMode: Boolean = false) {
     var totalDuration by remember { mutableStateOf(0L) }
     var isControlsVisible by remember { mutableStateOf(true) }
     
-    DisposableEffect(exoPlayer) {
-        val listener = object : androidx.media3.common.Player.Listener {
-            override fun onIsPlayingChanged(playing: Boolean) {
-                isPlaying = playing
-            }
-            override fun onPlaybackStateChanged(playbackState: Int) {
-                if (playbackState == androidx.media3.common.Player.STATE_READY) {
-                    totalDuration = exoPlayer.duration.coerceAtLeast(0L)
-                }
-            }
-        }
-        exoPlayer.addListener(listener)
-        
-        onDispose {
-            exoPlayer.removeListener(listener)
-            exoPlayer.release()
-        }
-    }
+    var resizeMode by remember { mutableStateOf("FIT") }
 
-    // Battery Manager (Low Power Mode)
-    DisposableEffect(context) {
-        val receiver = object : android.content.BroadcastReceiver() {
-            override fun onReceive(context: android.content.Context, intent: android.content.Intent) {
-                val level = intent.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1)
-                val scale = intent.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, -1)
-                if (level != -1 && scale != -1) {
-                    val batteryPct = level * 100 / scale.toFloat()
-                    if (batteryPct <= 20f) {
-                        // Low power mode: Cap at 1080p and lower bitrate
-                        trackSelector.setParameters(
-                            trackSelector.buildUponParameters()
-                                .setMaxVideoSize(1920, 1080)
-                                .setMaxVideoBitrate(5000000)
-                                .build()
-                        )
-                    } else {
-                        trackSelector.setParameters(
-                            trackSelector.buildUponParameters()
-                                .clearVideoSizeConstraints()
-                                .build()
-                        )
+    var audioTracks by remember { mutableStateOf<List<MediaPlayer.TrackDescription>>(emptyList()) }
+    var spuTracks by remember { mutableStateOf<List<MediaPlayer.TrackDescription>>(emptyList()) }
+    var showAudioMenu by remember { mutableStateOf(false) }
+    var showSpuMenu by remember { mutableStateOf(false) }
+    var initializedTracks by remember { mutableStateOf(false) }
+
+    DisposableEffect(mediaPlayer) {
+        val listener = MediaPlayer.EventListener { event ->
+            when (event.type) {
+                MediaPlayer.Event.Playing -> {
+                    isPlaying = true
+                    if (!initializedTracks) {
+                        val aTracks = mediaPlayer.audioTracks?.toList() ?: emptyList()
+                        audioTracks = aTracks
+                        spuTracks = mediaPlayer.spuTracks?.toList() ?: emptyList()
+                        
+                        // Default to English audio if available
+                        val engAudio = aTracks.find { it.name.contains("English", ignoreCase = true) || it.name.contains("eng", ignoreCase = true) }
+                        if (engAudio != null && mediaPlayer.audioTrack != engAudio.id) {
+                            mediaPlayer.audioTrack = engAudio.id
+                        }
+                        
+                        initializedTracks = true
                     }
                 }
+                MediaPlayer.Event.Paused -> isPlaying = false
+                MediaPlayer.Event.TimeChanged -> currentTime = mediaPlayer.time
+                MediaPlayer.Event.LengthChanged -> totalDuration = mediaPlayer.length
             }
         }
-        context.registerReceiver(receiver, android.content.IntentFilter(android.content.Intent.ACTION_BATTERY_CHANGED))
+        mediaPlayer.setEventListener(listener)
+        
         onDispose {
-            context.unregisterReceiver(receiver)
+            mediaPlayer.setEventListener(null)
+            mediaPlayer.stop()
+            mediaPlayer.release()
+            libVLC.release()
         }
     }
 
     // Auto-hide controls
     LaunchedEffect(isControlsVisible, isPlaying) {
         if (isControlsVisible && isPlaying && !isPipMode) {
-            kotlinx.coroutines.delay(4000)
+            delay(4000)
             isControlsVisible = false
         }
     }
 
-    // PiP force hide
     LaunchedEffect(isPipMode) {
         if (isPipMode) {
             isControlsVisible = false
         }
     }
 
-    // Progress tracker
-    LaunchedEffect(isPlaying, isControlsVisible) {
-        while (true) {
-            currentTime = exoPlayer.currentPosition.coerceAtLeast(0L)
-            kotlinx.coroutines.delay(1000)
-        }
-    }
-
-    androidx.compose.foundation.layout.Box(
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(androidx.compose.ui.graphics.Color.Black)
+            .background(Color.Black)
     ) {
         AndroidView(
             factory = { ctx ->
-                PlayerView(ctx).apply {
-                    player = exoPlayer
-                    useController = false // Hide default controls completely
-                    keepScreenOn = true
+                VLCVideoLayout(ctx).apply {
+                    mediaPlayer.attachViews(this, null, false, false)
                 }
             },
-            update = { playerView ->
-                playerView.resizeMode = resizeMode
+            update = { videoLayout ->
+                when (resizeMode) {
+                    "FIT" -> mediaPlayer.videoScale = MediaPlayer.ScaleType.SURFACE_BEST_FIT
+                    "FILL" -> {
+                        mediaPlayer.aspectRatio = null
+                        mediaPlayer.videoScale = MediaPlayer.ScaleType.SURFACE_FILL 
+                    }
+                    "ZOOM" -> mediaPlayer.videoScale = MediaPlayer.ScaleType.SURFACE_FIT_SCREEN
+                }
             },
             modifier = Modifier
                 .fillMaxSize()
@@ -248,31 +217,30 @@ fun VideoPlayer(streamUrl: String, title: String, isPipMode: Boolean = false) {
         var showVolumeIndicator by remember { mutableStateOf(false) }
         var showBrightnessIndicator by remember { mutableStateOf(false) }
 
-        // Auto-hide indicators
         LaunchedEffect(showVolumeIndicator) {
             if (showVolumeIndicator) {
-                kotlinx.coroutines.delay(2000)
+                delay(2000)
                 showVolumeIndicator = false
             }
         }
         LaunchedEffect(showBrightnessIndicator) {
             if (showBrightnessIndicator) {
-                kotlinx.coroutines.delay(2000)
+                delay(2000)
                 showBrightnessIndicator = false
             }
         }
 
-        // Gesture Areas (Seek, Brightness, Volume)
-        androidx.compose.foundation.layout.Row(modifier = Modifier.fillMaxSize()) {
+        // Gesture Areas
+        Row(modifier = Modifier.fillMaxSize()) {
             // Left Half: Seek Back & Brightness
-            androidx.compose.foundation.layout.Box(
+            Box(
                 modifier = Modifier
                     .fillMaxHeight()
                     .weight(1f)
                     .pointerInput(Unit) {
                         detectTapGestures(
                             onDoubleTap = {
-                                exoPlayer.seekBack()
+                                mediaPlayer.time = (mediaPlayer.time - 10000).coerceAtLeast(0)
                                 isControlsVisible = true
                             },
                             onTap = { isControlsVisible = !isControlsVisible }
@@ -281,7 +249,7 @@ fun VideoPlayer(streamUrl: String, title: String, isPipMode: Boolean = false) {
                     .pointerInput(Unit) {
                         detectVerticalDragGestures { change, dragAmount ->
                             change.consume()
-                            val delta = -(dragAmount / 500f) // Sensitivity
+                            val delta = -(dragAmount / 500f)
                             currentBrightness = (currentBrightness + delta).coerceIn(0f, 1f)
                             window?.let { w ->
                                 val attrs = w.attributes
@@ -292,34 +260,30 @@ fun VideoPlayer(streamUrl: String, title: String, isPipMode: Boolean = false) {
                         }
                     }
             ) {
-                androidx.compose.animation.AnimatedVisibility(
-                    visible = showBrightnessIndicator,
-                    enter = androidx.compose.animation.fadeIn(),
-                    exit = androidx.compose.animation.fadeOut(),
-                    modifier = Modifier.align(androidx.compose.ui.Alignment.Center)
-                ) {
-                    androidx.compose.foundation.layout.Box(
+                if (showBrightnessIndicator) {
+                    Box(
                         modifier = Modifier
-                            .background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.7f), androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
+                            .align(Alignment.Center)
+                            .background(Color.Black.copy(alpha = 0.7f), androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
                             .padding(horizontal = 20.dp, vertical = 12.dp)
                     ) {
-                        androidx.compose.material3.Text(
+                        Text(
                             text = "☀️ ${(currentBrightness * 100).toInt()}%",
-                            color = androidx.compose.ui.graphics.Color.White,
-                            style = androidx.compose.material3.MaterialTheme.typography.titleMedium
+                            color = Color.White,
+                            style = MaterialTheme.typography.titleMedium
                         )
                     }
                 }
             }
             // Right Half: Seek Forward & Volume
-            androidx.compose.foundation.layout.Box(
+            Box(
                 modifier = Modifier
                     .fillMaxHeight()
                     .weight(1f)
                     .pointerInput(Unit) {
                         detectTapGestures(
                             onDoubleTap = {
-                                exoPlayer.seekForward()
+                                mediaPlayer.time = (mediaPlayer.time + 10000).coerceAtMost(mediaPlayer.length)
                                 isControlsVisible = true
                             },
                             onTap = { isControlsVisible = !isControlsVisible }
@@ -339,21 +303,17 @@ fun VideoPlayer(streamUrl: String, title: String, isPipMode: Boolean = false) {
                         }
                     }
             ) {
-                androidx.compose.animation.AnimatedVisibility(
-                    visible = showVolumeIndicator,
-                    enter = androidx.compose.animation.fadeIn(),
-                    exit = androidx.compose.animation.fadeOut(),
-                    modifier = Modifier.align(androidx.compose.ui.Alignment.Center)
-                ) {
-                    androidx.compose.foundation.layout.Box(
+                if (showVolumeIndicator) {
+                    Box(
                         modifier = Modifier
-                            .background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.7f), androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
+                            .align(Alignment.Center)
+                            .background(Color.Black.copy(alpha = 0.7f), androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
                             .padding(horizontal = 20.dp, vertical = 12.dp)
                     ) {
-                        androidx.compose.material3.Text(
+                        Text(
                             text = "🔊 ${(currentVolume * 100 / maxVolume)}%",
-                            color = androidx.compose.ui.graphics.Color.White,
-                            style = androidx.compose.material3.MaterialTheme.typography.titleMedium
+                            color = Color.White,
+                            style = MaterialTheme.typography.titleMedium
                         )
                     }
                 }
@@ -361,177 +321,185 @@ fun VideoPlayer(streamUrl: String, title: String, isPipMode: Boolean = false) {
         }
 
         // Custom Modern Controls Overlay
-        androidx.compose.animation.AnimatedVisibility(
+        AnimatedVisibility(
             visible = isControlsVisible,
-            enter = androidx.compose.animation.fadeIn(),
-            exit = androidx.compose.animation.fadeOut(),
+            enter = fadeIn(),
+            exit = fadeOut(),
             modifier = Modifier.fillMaxSize()
         ) {
-            androidx.compose.foundation.layout.Box(
+            Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.5f))
+                    .background(Color.Black.copy(alpha = 0.5f))
             ) {
                 // Top Bar
-                androidx.compose.foundation.layout.Row(
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(16.dp)
-                        .align(androidx.compose.ui.Alignment.TopStart),
-                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                        .align(Alignment.TopStart),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    androidx.compose.material3.IconButton(
+                    IconButton(
                         onClick = { (context as? ComponentActivity)?.finish() }
                     ) {
-                        androidx.compose.material3.Icon(
-                            imageVector = androidx.compose.material.icons.Icons.Default.ArrowBack,
+                        Icon(
+                            imageVector = Icons.Default.ArrowBack,
                             contentDescription = "Back",
-                            tint = androidx.compose.ui.graphics.Color.White
+                            tint = Color.White
                         )
                     }
-                    androidx.compose.material3.Text(
+                    Text(
                         text = title,
-                        color = androidx.compose.ui.graphics.Color.White,
-                        style = androidx.compose.material3.MaterialTheme.typography.titleMedium,
+                        color = Color.White,
+                        style = MaterialTheme.typography.titleMedium,
                         modifier = Modifier.weight(1f),
                         maxLines = 1
                     )
-                    androidx.compose.material3.TextButton(onClick = {
-                        try {
-                            androidx.media3.ui.TrackSelectionDialogBuilder(
-                                context,
-                                "Audio Tracks",
-                                exoPlayer,
-                                androidx.media3.common.C.TRACK_TYPE_AUDIO
-                            ).build().show()
-                        } catch (e: Exception) {
-                            e.printStackTrace()
+                    // Subtitle Button
+                    if (spuTracks.isNotEmpty()) {
+                        Box {
+                            TextButton(onClick = { showSpuMenu = true }) {
+                                Text("Subtitles", color = Color.White)
+                            }
+                            DropdownMenu(
+                                expanded = showSpuMenu,
+                                onDismissRequest = { showSpuMenu = false },
+                                modifier = Modifier.background(Color.DarkGray)
+                            ) {
+                                spuTracks.forEach { track ->
+                                    DropdownMenuItem(
+                                        text = { Text(track.name, color = if (mediaPlayer.spuTrack == track.id) MaterialTheme.colorScheme.primary else Color.White) },
+                                        onClick = { 
+                                            mediaPlayer.spuTrack = track.id
+                                            showSpuMenu = false
+                                        }
+                                    )
+                                }
+                            }
                         }
-                    }) {
-                        androidx.compose.material3.Text(
-                            text = "AUDIO",
-                            color = androidx.compose.ui.graphics.Color.White,
-                            style = androidx.compose.material3.MaterialTheme.typography.labelLarge
-                        )
                     }
-                    androidx.compose.material3.TextButton(onClick = {
-                        try {
-                            androidx.media3.ui.TrackSelectionDialogBuilder(
-                                context,
-                                "Subtitles",
-                                exoPlayer,
-                                androidx.media3.common.C.TRACK_TYPE_TEXT
-                            ).build().show()
-                        } catch (e: Exception) {
-                            e.printStackTrace()
+
+                    // Audio Button
+                    if (audioTracks.isNotEmpty()) {
+                        Box {
+                            TextButton(onClick = { showAudioMenu = true }) {
+                                Text("Audio", color = Color.White)
+                            }
+                            DropdownMenu(
+                                expanded = showAudioMenu,
+                                onDismissRequest = { showAudioMenu = false },
+                                modifier = Modifier.background(Color.DarkGray)
+                            ) {
+                                audioTracks.forEach { track ->
+                                    DropdownMenuItem(
+                                        text = { Text(track.name, color = if (mediaPlayer.audioTrack == track.id) MaterialTheme.colorScheme.primary else Color.White) },
+                                        onClick = { 
+                                            mediaPlayer.audioTrack = track.id
+                                            showAudioMenu = false
+                                        }
+                                    )
+                                }
+                            }
                         }
-                    }) {
-                        androidx.compose.material3.Text(
-                            text = "SUBS",
-                            color = androidx.compose.ui.graphics.Color.White,
-                            style = androidx.compose.material3.MaterialTheme.typography.labelLarge
-                        )
                     }
-                    androidx.compose.material3.TextButton(onClick = {
+
+                    TextButton(onClick = {
                         resizeMode = when (resizeMode) {
-                            androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT -> androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FILL
-                            androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FILL -> androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM
-                            else -> androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
+                            "FIT" -> "FILL"
+                            "FILL" -> "ZOOM"
+                            else -> "FIT"
                         }
                     }) {
-                        androidx.compose.material3.Text(
-                            text = when (resizeMode) {
-                                androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT -> "FIT"
-                                androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FILL -> "STRETCH"
-                                else -> "ZOOM"
-                            },
-                            color = androidx.compose.ui.graphics.Color.White,
-                            style = androidx.compose.material3.MaterialTheme.typography.labelLarge
+                        Text(
+                            text = resizeMode,
+                            color = Color.White,
+                            style = MaterialTheme.typography.labelLarge
                         )
                     }
                 }
 
                 // Center Controls
-                androidx.compose.foundation.layout.Row(
-                    modifier = Modifier.align(androidx.compose.ui.Alignment.Center),
-                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(48.dp)
+                Row(
+                    modifier = Modifier.align(Alignment.Center),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(48.dp)
                 ) {
                     // Rewind
-                    androidx.compose.material3.IconButton(
-                        onClick = { exoPlayer.seekBack() },
+                    IconButton(
+                        onClick = { mediaPlayer.time = (mediaPlayer.time - 10000).coerceAtLeast(0) },
                         modifier = Modifier.size(56.dp)
                     ) {
-                        androidx.compose.material3.Icon(
+                        Icon(
                             painter = androidx.compose.ui.res.painterResource(android.R.drawable.ic_media_rew),
                             contentDescription = "Rewind",
-                            tint = androidx.compose.ui.graphics.Color.White,
+                            tint = Color.White,
                             modifier = Modifier.size(40.dp)
                         )
                     }
                     // Play/Pause
-                    androidx.compose.material3.IconButton(
+                    IconButton(
                         onClick = { 
-                            if (isPlaying) exoPlayer.pause() else exoPlayer.play() 
+                            if (isPlaying) mediaPlayer.pause() else mediaPlayer.play() 
                         },
                         modifier = Modifier.size(80.dp)
                     ) {
-                        androidx.compose.material3.Icon(
+                        Icon(
                             painter = androidx.compose.ui.res.painterResource(
                                 if (isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play
                             ),
                             contentDescription = if (isPlaying) "Pause" else "Play",
-                            tint = androidx.compose.ui.graphics.Color.White,
+                            tint = Color.White,
                             modifier = Modifier.size(70.dp)
                         )
                     }
                     // Fast Forward
-                    androidx.compose.material3.IconButton(
-                        onClick = { exoPlayer.seekForward() },
+                    IconButton(
+                        onClick = { mediaPlayer.time = (mediaPlayer.time + 10000).coerceAtMost(mediaPlayer.length) },
                         modifier = Modifier.size(56.dp)
                     ) {
-                        androidx.compose.material3.Icon(
+                        Icon(
                             painter = androidx.compose.ui.res.painterResource(android.R.drawable.ic_media_ff),
                             contentDescription = "Fast Forward",
-                            tint = androidx.compose.ui.graphics.Color.White,
+                            tint = Color.White,
                             modifier = Modifier.size(40.dp)
                         )
                     }
                 }
 
                 // Bottom Bar (Progress)
-                androidx.compose.foundation.layout.Row(
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 24.dp, vertical = 24.dp)
-                        .align(androidx.compose.ui.Alignment.BottomCenter),
-                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                        .align(Alignment.BottomCenter),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    androidx.compose.material3.Text(
+                    Text(
                         text = formatTime(currentTime),
-                        color = androidx.compose.ui.graphics.Color.White,
-                        style = androidx.compose.material3.MaterialTheme.typography.labelMedium
+                        color = Color.White,
+                        style = MaterialTheme.typography.labelMedium
                     )
-                    androidx.compose.material3.Slider(
+                    Slider(
                         value = if (totalDuration > 0) (currentTime.toFloat() / totalDuration.toFloat()) else 0f,
                         onValueChange = { value ->
                             val newPosition = (value * totalDuration).toLong()
-                            exoPlayer.seekTo(newPosition)
+                            mediaPlayer.time = newPosition
                             currentTime = newPosition
                         },
                         modifier = Modifier
                             .weight(1f)
                             .padding(horizontal = 16.dp),
-                        colors = androidx.compose.material3.SliderDefaults.colors(
-                            thumbColor = androidx.compose.material3.MaterialTheme.colorScheme.primary,
-                            activeTrackColor = androidx.compose.material3.MaterialTheme.colorScheme.primary,
-                            inactiveTrackColor = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.3f)
+                        colors = SliderDefaults.colors(
+                            thumbColor = MaterialTheme.colorScheme.primary,
+                            activeTrackColor = MaterialTheme.colorScheme.primary,
+                            inactiveTrackColor = Color.White.copy(alpha = 0.3f)
                         )
                     )
-                    androidx.compose.material3.Text(
+                    Text(
                         text = formatTime(totalDuration),
-                        color = androidx.compose.ui.graphics.Color.White,
-                        style = androidx.compose.material3.MaterialTheme.typography.labelMedium
+                        color = Color.White,
+                        style = MaterialTheme.typography.labelMedium
                     )
                 }
             }

@@ -13,4 +13,12 @@ interface MovieRepository {
     fun getTrendingSuggestionsFlow(type: String): Flow<List<Movie>>
     suspend fun getMovieStreamUrl(folderUrl: String): Result<String>
     suspend fun getTmdbSeasonDetails(tvId: Int, seasonNumber: Int): Result<com.potflix.data.remote.TmdbSeasonResponse>
+    
+    // Genre functions
+    suspend fun getGenres(): Result<List<Genre>>
+    suspend fun getMoviesByGenre(genreId: Long, type: String, limit: Int = 30): Result<List<Movie>>
+    
+    // History functions
+    suspend fun addToWatchHistory(movie: Movie)
+    fun getWatchHistoryFlow(): Flow<List<Movie>>
 }

@@ -88,7 +88,8 @@ data class TmdbMovieDto(
     val release_date: String?,
     val first_air_date: String?,
     val media_type: String?,
-    val genre_ids: List<Int>?
+    val genre_ids: List<Int>?,
+    val original_language: String?
 )
 
 data class TmdbSeasonResponse(
@@ -112,7 +113,8 @@ data class TmdbDetailDto(
     val original_language: String?,
     val runtime: Int?, // For movies
     val episode_run_time: List<Int>?, // For TV
-    val credits: TmdbCredits?
+    val credits: TmdbCredits?,
+    val vote_average: Double?
 )
 
 data class TmdbGenre(

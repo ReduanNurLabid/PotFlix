@@ -20,14 +20,14 @@ class TvSeriesViewModel @Inject constructor(
     private val localMovieDao: LocalMovieDao
 ) : ViewModel() {
 
-    private val _categories = MutableStateFlow<List<Category>>(emptyList())
-    val categories = _categories.asStateFlow()
+    private val _genres = MutableStateFlow<List<com.potflix.domain.model.Genre>>(emptyList())
+    val genres = _genres.asStateFlow()
 
-    private val _trendingSeries = MutableStateFlow<List<Movie>>(emptyList())
-    val trendingSeries = _trendingSeries.asStateFlow()
+    private val _trendingTv = MutableStateFlow<List<Movie>>(emptyList())
+    val trendingTv = _trendingTv.asStateFlow()
 
-    private val _categorySeries = MutableStateFlow<Map<String, List<Movie>>>(emptyMap())
-    val categorySeries = _categorySeries.asStateFlow()
+    private val _genreTv = MutableStateFlow<Map<String, List<Movie>>>(emptyMap())
+    val genreTv = _genreTv.asStateFlow()
 
     private val _isLoading = MutableStateFlow(false)
     val isLoading = _isLoading.asStateFlow()
@@ -36,7 +36,7 @@ class TvSeriesViewModel @Inject constructor(
     val isHeroInWatchlist = _isHeroInWatchlist.asStateFlow()
 
     fun toggleHeroWatchlist() {
-        val heroMovie = _trendingSeries.value.firstOrNull() ?: return
+        val heroMovie = _trendingTv.value.firstOrNull() ?: return
         viewModelScope.launch {
             val entity = heroMovie.toLocalMovieEntity()
             if (_isHeroInWatchlist.value) {
@@ -56,9 +56,9 @@ class TvSeriesViewModel @Inject constructor(
             _isLoading.value = true
             
             launch {
-                repository.getTrendingSuggestionsFlow("tv").collect { movies ->
-                    val top10 = movies.take(10)
-                    _trendingSeries.value = top10
+                repository.getTrendingSuggestionsFlow("tv").collect { tvShows ->
+                    val top10 = tvShows.take(10)
+                    _trendingTv.value = top10
 
                     val hero = top10.firstOrNull()
                     if (hero != null) {
@@ -73,11 +73,11 @@ class TvSeriesViewModel @Inject constructor(
                         launch {
                             repository.getMovieDetails(movie).onSuccess { detailedMovie ->
                                 if (detailedMovie.poster != null) {
-                                    val currentList = _trendingSeries.value.toMutableList()
+                                    val currentList = _trendingTv.value.toMutableList()
                                     val index = currentList.indexOfFirst { it.url == movie.url }
                                     if (index != -1) {
                                         currentList[index] = detailedMovie
-                                        _trendingSeries.value = currentList
+                                        _trendingTv.value = currentList
                                     }
                                 }
                             }
@@ -86,35 +86,30 @@ class TvSeriesViewModel @Inject constructor(
                 }
             }
             
-            repository.getCategories().onSuccess { dbCategories ->
-                val dynamicCategories = mutableListOf<Category>()
-                val dynamicCategorySeries = mutableMapOf<String, List<Movie>>()
+            repository.getGenres().onSuccess { dbGenres ->
+                val dynamicGenres = mutableListOf<com.potflix.domain.model.Genre>()
+                val dynamicGenreTv = mutableMapOf<String, List<Movie>>()
                 
-                // Only take categories that are probably TV Series
-                val seriesCategories = dbCategories.filter { 
-                    it.name.contains("series", ignoreCase = true) || 
-                    it.name.contains("tv", ignoreCase = true) ||
-                    it.name.contains("drama", ignoreCase = true)
-                }
+                val selectedGenres = dbGenres.shuffled().take(7)
                 
-                seriesCategories.forEach { category ->
-                    repository.getLatestMovies(category.id).onSuccess { seriesInCat ->
-                        if (seriesInCat.isNotEmpty()) {
-                            val items = seriesInCat.take(15)
-                            dynamicCategories.add(category)
-                            dynamicCategorySeries[category.id] = items
+                selectedGenres.forEach { genre ->
+                    repository.getMoviesByGenre(genre.id, "tv").onSuccess { seriesInGenre ->
+                        if (seriesInGenre.isNotEmpty()) {
+                            val items = seriesInGenre.take(15)
+                            dynamicGenres.add(genre)
+                            dynamicGenreTv[genre.id.toString()] = items
                             
                             items.forEach { movie ->
                                 launch {
                                     repository.getMovieDetails(movie).onSuccess { detailedMovie ->
                                         if (detailedMovie.poster != null) {
-                                            val currentMap = _categorySeries.value.toMutableMap()
-                                            val currentList = currentMap[category.id]?.toMutableList() ?: return@launch
+                                            val currentMap = _genreTv.value.toMutableMap()
+                                            val currentList = currentMap[genre.id.toString()]?.toMutableList() ?: return@launch
                                             val index = currentList.indexOfFirst { it.url == movie.url }
                                             if (index != -1) {
                                                 currentList[index] = detailedMovie
-                                                currentMap[category.id] = currentList
-                                                _categorySeries.value = currentMap
+                                                currentMap[genre.id.toString()] = currentList
+                                                _genreTv.value = currentMap
                                             }
                                         }
                                     }
@@ -124,8 +119,8 @@ class TvSeriesViewModel @Inject constructor(
                     }
                 }
                 
-                _categories.value = dynamicCategories
-                _categorySeries.value = dynamicCategorySeries
+                _genres.value = dynamicGenres
+                _genreTv.value = dynamicGenreTv
             }
             _isLoading.value = false
         }

@@ -63,7 +63,8 @@ fun PotFlixNavGraph(
             route = Screen.CategoryDetail.route,
             arguments = listOf(
                 navArgument("categoryId") { type = NavType.StringType },
-                navArgument("categoryName") { type = NavType.StringType }
+                navArgument("categoryName") { type = NavType.StringType },
+                navArgument("type") { type = NavType.StringType; defaultValue = "category" }
             )
         ) {
             com.potflix.presentation.category.CategoryDetailScreen(navController = navController)

@@ -5,7 +5,6 @@ import androidx.lifecycle.viewModelScope
 import com.potflix.domain.model.Category
 import com.potflix.domain.model.Movie
 import com.potflix.domain.repository.MovieRepository
-import com.potflix.data.sync.CatalogSyncManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -19,7 +18,6 @@ import com.potflix.data.local.entity.toLocalMovieEntity
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val repository: MovieRepository,
-    private val syncManager: CatalogSyncManager,
     private val localMovieDao: LocalMovieDao,
     private val application: android.app.Application
 ) : ViewModel() {
@@ -39,11 +37,13 @@ class HomeViewModel @Inject constructor(
     private val _isHeroInWatchlist = MutableStateFlow(false)
     val isHeroInWatchlist = _isHeroInWatchlist.asStateFlow()
     
-    val isSyncing = syncManager.isSyncing
-    val syncProgress = syncManager.syncProgress
+    val isSyncing = MutableStateFlow(false)
+    val syncProgress = MutableStateFlow("Syncing Database...")
 
     private val _toastMessage = MutableStateFlow<String?>(null)
     val toastMessage = _toastMessage.asStateFlow()
+
+    val watchHistory = repository.getWatchHistoryFlow()
 
     fun clearToastMessage() {
         _toastMessage.value = null
@@ -61,7 +61,7 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    init {
+        init {
         val prefs = application.getSharedPreferences("potflix_prefs", android.content.Context.MODE_PRIVATE)
         val lastSync = prefs.getLong("last_sync_time", 0L)
         val currentTime = System.currentTimeMillis()
@@ -71,14 +71,23 @@ class HomeViewModel @Inject constructor(
         
         loadHomeData()
         
-        // Reload data after sync completes
-        viewModelScope.launch {
-            syncManager.isSyncing.collectLatest { syncing ->
-                if (!syncing) {
+        androidx.work.WorkManager.getInstance(application)
+            .getWorkInfosForUniqueWorkLiveData("ManualSync")
+            .observeForever { workInfos ->
+                if (workInfos.isNullOrEmpty()) return@observeForever
+                val workInfo = workInfos[0]
+                
+                val currentlySyncing = workInfo.state == androidx.work.WorkInfo.State.RUNNING || 
+                                       workInfo.state == androidx.work.WorkInfo.State.ENQUEUED
+                                       
+                val wasSyncing = isSyncing.value
+                isSyncing.value = currentlySyncing
+                
+                if (wasSyncing && !currentlySyncing) {
+                    // Sync just finished, reload data
                     loadHomeData()
                 }
             }
-        }
     }
 
     private fun loadHomeData() {

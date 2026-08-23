@@ -40,18 +40,12 @@ fun DetailScreen(
     val streamError by viewModel.streamError.collectAsState()
     val selectedSeasonIndex by viewModel.selectedSeasonIndex.collectAsState()
     val lastPlayedEpisodeUrl by viewModel.lastPlayedEpisodeUrl.collectAsState()
+    val downloads by viewModel.downloads.collectAsState()
     val selectedSeason = seasons.getOrNull(selectedSeasonIndex)
     
     val context = androidx.compose.ui.platform.LocalContext.current
-    val playVideoExternally = { url: String, title: String ->
-        val videoIntent = android.content.Intent(android.content.Intent.ACTION_VIEW)
-        videoIntent.setDataAndType(android.net.Uri.parse(url), "video/*")
-        videoIntent.putExtra("title", title)
-        try {
-            context.startActivity(videoIntent)
-        } catch (e: Exception) {
-            android.widget.Toast.makeText(context, "No external video player found. Please install VLC or MX Player.", android.widget.Toast.LENGTH_LONG).show()
-        }
+    val playVideo = { url: String, title: String ->
+        navController.navigate(Screen.Player.createRoute(url, title))
     }
 
     Scaffold(
@@ -191,43 +185,34 @@ fun DetailScreen(
                         )
                     }
                     
-                    if (movie?.runtime != null || !movie?.language.isNullOrEmpty()) {
+                    if (!movie?.cast.isNullOrEmpty()) {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = "Cast",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp
+                        )
                         Spacer(modifier = Modifier.height(8.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            if (movie?.runtime != null && movie!!.runtime!! > 0) {
-                                Text(
-                                    text = "${movie!!.runtime} min",
-                                    color = Color.Gray,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            }
-                            if (movie?.runtime != null && movie!!.runtime!! > 0 && !movie?.language.isNullOrEmpty()) {
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("•", color = Color.Gray, fontSize = 12.sp)
-                                Spacer(modifier = Modifier.width(8.dp))
-                            }
-                            if (!movie?.language.isNullOrEmpty()) {
-                                Text(
-                                    text = movie!!.language!!,
-                                    color = Color.Gray,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
+                        androidx.compose.foundation.lazy.LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            items(movie!!.cast!!) { actor ->
+                                Box(
+                                    modifier = Modifier
+                                        .background(Color(0xFF222222), shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
+                                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                                ) {
+                                    Text(
+                                        text = actor,
+                                        color = Color.LightGray,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
                             }
                         }
                     }
-
-                    if (!movie?.cast.isNullOrEmpty()) {
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Text(
-                            text = "Cast: ${movie!!.cast!!.joinToString(", ")}",
-                            color = Color.Gray,
-                            fontSize = 12.sp,
-                            lineHeight = 16.sp
-                        )
-                    }
-                    
                     Spacer(modifier = Modifier.height(16.dp))
                     
                     Text(
@@ -259,7 +244,8 @@ fun DetailScreen(
                             Button(
                                 onClick = {
                                     movie?.let {
-                                        playVideoExternally(it.url, it.title)
+                                        viewModel.onPlayStarted()
+                                        playVideo(it.url, it.title)
                                     }
                                 },
                                 modifier = Modifier.fillMaxWidth().height(48.dp),
@@ -276,32 +262,36 @@ fun DetailScreen(
                             
                             Spacer(modifier = Modifier.height(12.dp))
                             
-                            val download = viewModel.downloads.value.find { it.streamUrl == movie?.url }
+                            val download = downloads.find { it.streamUrl == movie?.url }
                             
                             Button(
                                 onClick = {
-                                    if (download == null) {
+                                    if (download == null || download.status == com.potflix.service.DownloadService.STATUS_FAILED) {
                                         movie?.let {
                                             viewModel.startDownload(it.title, it.url, it.poster)
                                         }
+                                    } else if (download.status == com.potflix.service.DownloadService.STATUS_SUCCESSFUL) {
+                                        if (download.localUri != null) {
+                                            navController.navigate(Screen.Player.createRoute(download.localUri, download.title))
+                                        }
+                                    } else {
+                                        navController.navigate(Screen.Watchlist.route)
                                     }
                                 },
                                 modifier = Modifier.fillMaxWidth().height(48.dp),
-                                enabled = download == null || download.status == android.app.DownloadManager.STATUS_FAILED,
                                 shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = if (download?.status == android.app.DownloadManager.STATUS_SUCCESSFUL) 
+                                    containerColor = if (download?.status == com.potflix.service.DownloadService.STATUS_SUCCESSFUL) 
                                         Color(0xFF4CAF50) else Color.White.copy(alpha = 0.15f),
-                                    contentColor = Color.White,
-                                    disabledContainerColor = Color.White.copy(alpha = 0.05f)
+                                    contentColor = Color.White
                                 )
                             ) {
                                 if (download != null) {
-                                    if (download.status == android.app.DownloadManager.STATUS_SUCCESSFUL) {
-                                        Icon(androidx.compose.material.icons.Icons.Default.Check, contentDescription = null)
+                                    if (download.status == com.potflix.service.DownloadService.STATUS_SUCCESSFUL) {
+                                        Icon(Icons.Default.PlayArrow, contentDescription = null)
                                         Spacer(modifier = Modifier.width(8.dp))
-                                        Text("Downloaded", fontWeight = FontWeight.SemiBold)
-                                    } else if (download.status == android.app.DownloadManager.STATUS_FAILED) {
+                                        Text("Play Offline", fontWeight = FontWeight.SemiBold)
+                                    } else if (download.status == com.potflix.service.DownloadService.STATUS_FAILED) {
                                         Icon(painter = androidx.compose.ui.res.painterResource(id = com.potflix.R.drawable.ic_nav_downloads), contentDescription = null, modifier = Modifier.size(20.dp))
                                         Spacer(modifier = Modifier.width(8.dp))
                                         Text("Retry Download", fontWeight = FontWeight.SemiBold)
@@ -312,7 +302,8 @@ fun DetailScreen(
                                             strokeWidth = 2.dp
                                         )
                                         Spacer(modifier = Modifier.width(8.dp))
-                                        Text("Downloading... ${download.progress}%", fontWeight = FontWeight.SemiBold)
+                                        val statusText = if (download.status == com.potflix.service.DownloadService.STATUS_PAUSED) "Paused" else "Downloading..."
+                                        Text("$statusText ${download.progress}%", fontWeight = FontWeight.SemiBold)
                                     }
                                 } else {
                                     Icon(painter = androidx.compose.ui.res.painterResource(id = com.potflix.R.drawable.ic_nav_downloads), contentDescription = null, modifier = Modifier.size(20.dp))
@@ -423,9 +414,50 @@ fun DetailScreen(
                                     Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(40.dp))
                                 }
                             },
+                            trailingContent = {
+                                val epDownload = downloads.find { it.streamUrl == episode.url }
+                                IconButton(
+                                    onClick = {
+                                        if (epDownload == null || epDownload.status == com.potflix.service.DownloadService.STATUS_FAILED) {
+                                            val fullTitle = "${movie?.title ?: "TV Show"} - S${selectedSeason?.number ?: 1}E${episode.number ?: 1} - ${episode.title}"
+                                            viewModel.startDownload(
+                                                title = fullTitle,
+                                                streamUrl = episode.url,
+                                                poster = episode.stillPath ?: movie?.poster
+                                            )
+                                        } else {
+                                            navController.navigate(Screen.Watchlist.route)
+                                        }
+                                    }
+                                ) {
+                                    if (epDownload != null) {
+                                        if (epDownload.status == com.potflix.service.DownloadService.STATUS_SUCCESSFUL) {
+                                            Icon(androidx.compose.material.icons.Icons.Default.Check, contentDescription = "Downloaded", tint = Color(0xFF4CAF50))
+                                        } else if (epDownload.status == com.potflix.service.DownloadService.STATUS_FAILED) {
+                                            Icon(painter = androidx.compose.ui.res.painterResource(id = com.potflix.R.drawable.ic_nav_downloads), contentDescription = "Retry", tint = MaterialTheme.colorScheme.error)
+                                        } else {
+                                            CircularProgressIndicator(
+                                                progress = { epDownload.progress / 100f },
+                                                modifier = Modifier.size(24.dp),
+                                                color = MaterialTheme.colorScheme.primary,
+                                                strokeWidth = 2.dp
+                                            )
+                                        }
+                                    } else {
+                                        Icon(painter = androidx.compose.ui.res.painterResource(id = com.potflix.R.drawable.ic_nav_downloads), contentDescription = "Download")
+                                    }
+                                }
+                            },
                             modifier = Modifier.clickable {
+                                val epDownload = downloads.find { it.streamUrl == episode.url }
+                                viewModel.onPlayStarted()
                                 viewModel.saveLastPlayedEpisode(episode.url)
-                                playVideoExternally(episode.url, episode.title)
+                                
+                                if (epDownload?.status == com.potflix.service.DownloadService.STATUS_SUCCESSFUL && epDownload.localUri != null) {
+                                    playVideo(epDownload.localUri, epDownload.title)
+                                } else {
+                                    playVideo(episode.url, episode.title)
+                                }
                             }
                         )
                     }

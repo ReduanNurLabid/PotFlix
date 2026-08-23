@@ -13,6 +13,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.navigation.NavController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import com.potflix.presentation.theme.PotFlixRed
@@ -71,9 +74,10 @@ fun BottomNavBar(navController: NavController) {
 
     // Minimal, standard Bottom Navigation Bar
     NavigationBar(
-        containerColor = MaterialTheme.colorScheme.background,
+        modifier = Modifier.clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)),
+        containerColor = Color(0xFF0A0A0A), // Solid dark background matching app theme
         contentColor = PotFlixRed,
-        tonalElevation = 8.dp,
+        tonalElevation = 0.dp, // No elevation, flat design
         windowInsets = WindowInsets.navigationBars
     ) {
         items.forEach { item ->

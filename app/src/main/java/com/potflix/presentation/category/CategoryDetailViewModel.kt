@@ -19,6 +19,7 @@ class CategoryDetailViewModel @Inject constructor(
 
     private val categoryId: String = checkNotNull(savedStateHandle["categoryId"])
     val categoryName: String = checkNotNull(savedStateHandle["categoryName"])
+    private val type: String = savedStateHandle["type"] ?: "category"
 
     private val _movies = MutableStateFlow<List<Movie>>(emptyList())
     val movies = _movies.asStateFlow()
@@ -34,7 +35,15 @@ class CategoryDetailViewModel @Inject constructor(
         viewModelScope.launch {
             _isLoading.value = true
             // Load a much larger limit for "See All", like 100 movies
-            repository.getLatestMovies(categoryId, limit = 100).onSuccess { loadedMovies ->
+            val result = if (type == "genre_movie") {
+                repository.getMoviesByGenre(categoryId.toLong(), "movie", 100)
+            } else if (type == "genre_tv") {
+                repository.getMoviesByGenre(categoryId.toLong(), "tv", 100)
+            } else {
+                repository.getLatestMovies(categoryId, 100)
+            }
+            
+            result.onSuccess { loadedMovies ->
                 _movies.value = loadedMovies
                 
                 // Fetch details for loaded movies lazily

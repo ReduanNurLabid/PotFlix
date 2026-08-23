@@ -73,7 +73,11 @@ fun CategoryRow(
             contentPadding = PaddingValues(horizontal = 12.dp),
             horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            items(movies) { movie ->
+            items(
+                items = movies,
+                key = { it.url },
+                contentType = { "movieCard" }
+            ) { movie ->
                 MovieCard(
                     movie = movie,
                     onClick = { onMovieClick(movie) }

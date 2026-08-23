@@ -81,8 +81,8 @@ object PotFlixScraper {
     fun parseMovieName(folderName: String, url: String, isDirectory: Boolean): ScrapedEntry {
         // Remove file extension if present
         var name = folderName.replace(Regex("\\.[a-zA-Z0-9]{2,4}$"), "")
-        // Strip numbering prefixes like "003. "
-        name = name.replace(Regex("^\\d{2,4}\\.\\s*"), "")
+        // Strip numbering prefixes like "003. " or "22 - "
+        name = name.replace(Regex("^\\d{1,4}\\s*[\\.\\-]\\s*"), "")
 
         var isVideo = false
         var isImage = false
@@ -144,7 +144,8 @@ object PotFlixScraper {
                 isDirectory = isDirectory,
                 isVideo = isVideo,
                 isImage = isImage,
-                title = name
+                title = name,
+                quality = extractQuality(name)
             )
         }
 
@@ -161,8 +162,7 @@ object PotFlixScraper {
             title = title,
             year = year,
             quality = extractQuality(meta),
-            isDualAudio = Regex("dual\\s*audio", RegexOption.IGNORE_CASE).containsMatchIn(meta),
-            type = "movie"
+            isDualAudio = Regex("dual\\s*audio", RegexOption.IGNORE_CASE).containsMatchIn(meta)
         )
     }
 

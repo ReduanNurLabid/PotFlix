@@ -1,48 +1,60 @@
 package com.potflix.data.repository
 
+import com.potflix.data.local.dao.MovieDao
 import com.potflix.data.remote.PotFlixApi
 import com.potflix.data.remote.PotFlixScraper
+
 import com.potflix.domain.model.Category
 import com.potflix.domain.model.Movie
+import com.potflix.domain.model.Genre
 import com.potflix.domain.model.Season
 import com.potflix.domain.model.Episode
 import com.potflix.domain.repository.MovieRepository
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
 import javax.inject.Inject
 import javax.inject.Singleton
 
+import android.content.Context
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
+import com.potflix.data.remote.TmdbApi
+
 @Singleton
 class MovieRepositoryImpl @Inject constructor(
+    private val movieDao: MovieDao,
     private val api: PotFlixApi,
-    private val searchIndexManager: SearchIndexManager
+    private val tmdbApi: TmdbApi,
+    @ApplicationContext private val context: Context
 ) : MovieRepository {
 
-    private val categoriesList = listOf(
-        Category("english-movies", "English Movies", "movies", "http://172.16.50.7/DHAKA-FLIX-7/English%20Movies/", "🎬"),
-        Category("english-movies-1080p", "English Movies 1080p", "movies", "http://172.16.50.14/DHAKA-FLIX-14/English%20Movies%20%281080p%29/", "🎬"),
-        Category("hindi-movies", "Hindi Movies", "movies", "http://172.16.50.14/DHAKA-FLIX-14/Hindi%20Movies/", "🎭"),
-        Category("south-indian", "South Indian Movies", "movies", "http://172.16.50.14/DHAKA-FLIX-14/SOUTH%20INDIAN%20MOVIES/South%20Movies/", "🪷"),
-        Category("south-indian-hindi", "South-Movie Hindi Dubbed", "movies", "http://172.16.50.14/DHAKA-FLIX-14/SOUTH%20INDIAN%20MOVIES/Hindi%20Dubbed/", "🪷"),
-        Category("kolkata-bangla", "Kolkata Bangla Movies", "movies", "http://172.16.50.7/DHAKA-FLIX-7/Kolkata%20Bangla%20Movies/", "🐯"),
-        Category("animation", "Animation Movies", "movies", "http://172.16.50.14/DHAKA-FLIX-14/Animation%20Movies/", "🧸"),
-        Category("animation-1080p", "Animation Movies 1080p", "movies", "http://172.16.50.14/DHAKA-FLIX-14/Animation%20Movies%20%281080p%29/", "🧸"),
-        Category("foreign", "Foreign Language Movies", "movies", "http://172.16.50.7/DHAKA-FLIX-7/Foreign%20Language%20Movies/", "🌍"),
-        Category("imdb-top-250", "IMDb Top 250", "movies", "http://172.16.50.14/DHAKA-FLIX-14/IMDb%20Top-250%20Movies/", "⭐"),
-        Category("3d-movies", "3D Movies", "movies", "http://172.16.50.7/DHAKA-FLIX-7/3D%20Movies/", "👓"),
-        Category("english-tv", "TV & WEB Series", "tv", "http://172.16.50.12/DHAKA-FLIX-12/TV-WEB-Series/", "📺"),
-        Category("korean-tv", "Korean TV & WEB Series", "tv", "http://172.16.50.14/DHAKA-FLIX-14/KOREAN%20TV%20%26%20WEB%20Series/", "🇰🇷"),
-        Category("cartoon-tv", "Cartoon TV Series", "tv", "http://172.16.50.9/DHAKA-FLIX-9/Anime%20%26%20Cartoon%20TV%20Series/", "🦄"),
-        Category("documentary", "Documentary", "movies", "http://172.16.50.9/DHAKA-FLIX-9/Documentary/", "🎥"),
-        Category("wwe", "WWE & AEW Wrestling", "tv", "http://172.16.50.9/DHAKA-FLIX-9/WWE%20%26%20AEW%20Wrestling/", "🤼"),
-        Category("awards", "Award & TV Shows", "tv", "http://172.16.50.9/DHAKA-FLIX-9/Awards%20%26%20TV%20Shows/", "🏆"),
-        Category("satyajit-ray", "Satyajit Ray Films", "movies", "http://172.16.50.7/DHAKA-FLIX-7/Kolkata%20Bangla%20Movies/Satyajit%20Ray%20Films/", "🎞️")
-    )
+    private val prefs = context.getSharedPreferences("continue_watching_prefs", Context.MODE_PRIVATE)
+    private val gson = Gson()
+    private val _watchHistory = MutableStateFlow<List<Movie>>(loadWatchHistory())
 
-    init {
-        searchIndexManager.buildIndexInBackground(categoriesList)
+    private fun loadWatchHistory(): List<Movie> {
+        val json = prefs.getString("history", null) ?: return emptyList()
+        val type = object : TypeToken<List<Movie>>() {}.type
+        return try {
+            gson.fromJson(json, type) ?: emptyList()
+        } catch (e: Exception) {
+            emptyList()
+        }
     }
+
+    private val categoriesList = listOf(
+        Category("Hollywood", "Hollywood Movies", "movies", "", "🎬"),
+        Category("Bollywood", "Bollywood Movies", "movies", "", "🎭"),
+        Category("Animation", "Animation Movies", "movies", "", "🧸"),
+        Category("Tollywood", "Kolkata Bangla", "movies", "", "🐯"),
+        Category("South Indian", "South Indian", "movies", "", "🪷"),
+        Category("Foreign", "Foreign Movies", "movies", "", "🌍"),
+        Category("TV Series", "English TV Series", "movies", "", "📺"),
+        Category("Korean TV Series", "Korean Web Series", "movies", "", "🇰🇷"),
+        Category("IMDB Top 250", "IMDb Top 250", "movies", "", "⭐")
+    )
 
     override suspend fun getCategories(): Result<List<Category>> {
         return Result.success(categoriesList)
@@ -50,182 +62,57 @@ class MovieRepositoryImpl @Inject constructor(
 
     override suspend fun getLatestMovies(categoryId: String, limit: Int): Result<List<Movie>> {
         return try {
-            val category = categoriesList.find { it.id == categoryId }
-                ?: return Result.failure(Exception("Category not found"))
-
-            val entries = PotFlixScraper.scrapeDirectory(category.url)
-            val results = mutableListOf<Movie>()
-            
-            // Strategy 1: Year folders
-            val yearFolders = entries.filter { it.isDirectory && it.type == "yearFolder" }
-                .sortedByDescending { it.year ?: 0 }
-                .take(3)
-                
-            if (yearFolders.isNotEmpty()) {
-                for (yf in yearFolders) {
-                    if (results.size >= 30) break
-                    try {
-                        val movies = PotFlixScraper.scrapeDirectory(yf.url)
-                        val movieEntries = movies.filter { it.isDirectory && (it.type == "movie" || it.type == "tv") }
-                        results.addAll(movieEntries.take(30 - results.size).map {
-                            Movie(
-                                title = it.title ?: it.name,
-                                url = it.url,
-                                year = it.year,
-                                quality = it.quality,
-                                type = it.type ?: "movie",
-                                categoryId = category.id
-                            )
-                        })
-                    } catch (e: Exception) { e.printStackTrace() }
-                }
+            val moviesWithDetails = if (categoryId == "IMDB Top 250") {
+                movieDao.getImdbTop250Movies(limit)
+            } else {
+                movieDao.getRandomMoviesByCategory(categoryId, limit)
             }
-
-            // Strategy 2: Direct movies
-            if (results.isEmpty()) {
-                val direct = entries.filter { it.isDirectory && (it.type == "movie" || it.type == "tv") }
-                results.addAll(direct.take(30).map {
-                    Movie(
-                        title = it.title ?: it.name,
-                        url = it.url,
-                        year = it.year,
-                        quality = it.quality,
-                        type = it.type ?: "movie",
-                        categoryId = category.id
-                    )
-                })
-            }
-
-            // Strategy 3: Auto-flatten
-            if (results.isEmpty()) {
-                val subfolders = entries.filter { it.isDirectory }
-                
-                // If it's a TV series root, it might have grouping folders like A-Z or 0-9
-                val isAlphabetGrouping = subfolders.any { 
-                    it.name.contains("TV Series", ignoreCase = true) || 
-                    it.name.contains("★", ignoreCase = true) ||
-                    Regex("^[A-Z]\\s*-\\s*[A-Z]$").matches(it.name)
-                }
-
-                val foldersToCrawl = if (isAlphabetGrouping) subfolders else subfolders.take(8)
-
-                coroutineScope {
-                    val crawls = foldersToCrawl.map { sf ->
-                        async {
-                            try {
-                                PotFlixScraper.scrapeDirectory(sf.url)
-                                    .filter { it.isDirectory && (it.type == "movie" || it.type == "tv") }
-                            } catch (e: Exception) {
-                                emptyList()
-                            }
-                        }
-                    }
-                    crawls.awaitAll().forEach { list ->
-                        if (results.size < 30) {
-                            results.addAll(list.take(30 - results.size).map {
-                                Movie(
-                                    title = it.title ?: it.name,
-                                    url = it.url,
-                                    year = it.year,
-                                    quality = it.quality,
-                                    type = it.type ?: "movie",
-                                    categoryId = category.id
-                                )
-                            })
-                        }
-                    }
-                }
-            }
-
-            Result.success(results)
+            Result.success(moviesWithDetails.map { it.toDomainModel() })
         } catch (e: Exception) {
+            android.util.Log.e("MovieRepositoryImpl", "Error getting latest movies", e)
             Result.failure(e)
         }
     }
 
     override suspend fun searchMovies(query: String): Result<List<Movie>> {
         return try {
-            val q = query.lowercase().trim()
-            val words = q.split(Regex("\\s+"))
-            
-            val index = searchIndexManager.getIndex()
-            val scored = index.mapNotNull { entry ->
-                val titleLower = (entry.title ?: entry.name).lowercase()
-                var score = 0
-                if (titleLower.contains(q)) {
-                    score = if (titleLower.startsWith(q)) 100 else 80
-                } else if (words.all { titleLower.contains(it) }) {
-                    score = 60
-                } else if (words.size >= 2) {
-                    val matches = words.count { titleLower.contains(it) }
-                    if (matches >= words.size * 0.6) {
-                        score = 30 + (matches * 20 / words.size)
-                    }
-                }
-                
-                if (score > 0) Pair(entry, score) else null
-            }.sortedByDescending { it.second }
-            
-            val results = scored.take(50).map { (it, _) ->
-                Movie(
-                    title = it.title ?: it.name,
-                    url = it.url,
-                    year = it.year,
-                    quality = it.quality,
-                    type = it.type ?: "movie"
-                )
-            }
-            Result.success(results)
+            val results = movieDao.searchMovies(query)
+            Result.success(results.map { it.toDomainModel() })
         } catch (e: Exception) {
+            android.util.Log.e("MovieRepositoryImpl", "Error searching movies", e)
             Result.failure(e)
         }
     }
 
     override suspend fun getMovieDetails(movie: Movie): Result<Movie> {
+        if (movie.tmdbId == null) return Result.success(movie)
+        
         return try {
-            val searchType = if (movie.type == "tv") "tv" else "movie"
-            val tmdbRes = if (movie.type == "tv") {
-                api.searchTv(query = movie.title, year = movie.year?.toString())
+            val tmdbDetails = if (movie.type == "tv") {
+                api.getTvDetail(movie.tmdbId)
             } else {
-                api.searchMovie(query = movie.title, year = movie.year?.toString())
+                api.getMovieDetail(movie.tmdbId)
             }
             
-            if (tmdbRes.results.isNotEmpty()) {
-                val tmdbMovie = tmdbRes.results.first()
-                var trailerKey: String? = null
-                try {
-                    val videos = if (movie.type == "tv") {
-                        api.getTvVideos(tmdbMovie.id)
-                    } else {
-                        api.getMovieVideos(tmdbMovie.id)
-                    }
-                    val trailer = videos.results.find { it.site == "YouTube" && it.type == "Trailer" }
-                        ?: videos.results.find { it.site == "YouTube" }
-                    trailerKey = trailer?.key
-                } catch (e: Exception) { e.printStackTrace() }
-                
-                Result.success(movie.copy(
-                    overview = tmdbMovie.overview,
-                    poster = tmdbMovie.posterPath?.let { "https://image.tmdb.org/t/p/w342$it" },
-                    backdrop = tmdbMovie.backdropPath?.let { "https://image.tmdb.org/t/p/w1280$it" },
-                    rating = tmdbMovie.voteAverage,
-                    releaseDate = tmdbMovie.releaseDate ?: tmdbMovie.firstAirDate,
-                    trailerKey = trailerKey
-                ))
-            } else {
-                Result.success(movie)
-            }
+            val updatedMovie = movie.copy(
+                runtime = tmdbDetails.runtime ?: tmdbDetails.episode_run_time?.firstOrNull(),
+                language = tmdbDetails.original_language ?: movie.language,
+                cast = tmdbDetails.credits?.cast?.map { it.name }?.take(10),
+                rating = tmdbDetails.vote_average ?: movie.rating
+            )
+            Result.success(updatedMovie)
         } catch (e: Exception) {
+            android.util.Log.e("MovieRepositoryImpl", "Failed to fetch tmdb details", e)
             Result.success(movie)
         }
     }
 
     override suspend fun getSeriesEpisodes(url: String): Result<List<Season>> {
+        // For TV Shows, we still need to scrape the FTP because TV shows are not fully modeled in movies.db yet
         return try {
             val entries = PotFlixScraper.scrapeDirectory(url)
             val seasons = mutableListOf<Season>()
             
-            // Find explicit season folders (e.g., "Season 1", "S01")
             val seasonFolders = entries.filter { it.isDirectory && Regex("(season|s)\\s*\\d+", RegexOption.IGNORE_CASE).containsMatchIn(it.name) }
                 .sortedBy { Regex("\\d+").find(it.name)?.value?.toIntOrNull() ?: 0 }
                 
@@ -252,13 +139,8 @@ class MovieRepositoryImpl @Inject constructor(
                     } catch (e: Exception) { e.printStackTrace() }
                 }
             } else {
-                // Check if there are direct episodes in the root folder or inside a single subfolder (like "1080p")
                 val directVideos = entries.filter { it.isVideo }
-                
-                val videosToUse = if (directVideos.isNotEmpty()) {
-                    directVideos
-                } else {
-                    // Traverse into any subdirectories and find videos
+                val videosToUse = if (directVideos.isNotEmpty()) directVideos else {
                     val subDirs = entries.filter { it.isDirectory }
                     val allVideos = mutableListOf<com.potflix.data.remote.ScrapedEntry>()
                     for (sub in subDirs) {
@@ -289,8 +171,23 @@ class MovieRepositoryImpl @Inject constructor(
                     ))
                 }
             }
-            
             Result.success(seasons)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    private suspend fun getFallbackTrending(type: String): Result<List<Movie>> {
+        return try {
+            val calendar = java.util.Calendar.getInstance()
+            val minYear = calendar.get(java.util.Calendar.YEAR) - 2
+            
+            val highRated = when (type) {
+                "tv" -> movieDao.getRecentHighRatedTv(minYear, 10)
+                "movie" -> movieDao.getRecentHighRatedMovies(minYear, 10)
+                else -> movieDao.getRecentHighRatedAll(minYear, 10)
+            }
+            Result.success(highRated.map { it.toDomainModel() })
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -298,24 +195,36 @@ class MovieRepositoryImpl @Inject constructor(
 
     override suspend fun getTrendingSuggestions(type: String): Result<List<Movie>> {
         return try {
-            val res = if (type == "tv") api.getTrendingTv() else api.getTrendingMovies()
-            val movies = res.results.map { tmdbMovie ->
-                Movie(
-                    title = tmdbMovie.title ?: tmdbMovie.name ?: "",
-                    url = "",
-                    year = (tmdbMovie.releaseDate ?: tmdbMovie.firstAirDate)?.take(4)?.toIntOrNull(),
-                    type = type,
-                    overview = tmdbMovie.overview,
-                    poster = tmdbMovie.posterPath?.let { "https://image.tmdb.org/t/p/w342$it" },
-                    backdrop = tmdbMovie.backdropPath?.let { "https://image.tmdb.org/t/p/w1280$it" },
-                    rating = tmdbMovie.voteAverage
-                )
+            // Ask TMDB for actual world-wide popular content
+            val tmdbResponse = when(type) {
+                "tv" -> tmdbApi.getPopularTv()
+                "movie" -> tmdbApi.getPopularMovies()
+                else -> tmdbApi.getTrending() 
             }
-            // Ideally we cross-reference this with the local index to populate the URLs,
-            // but for suggestions that's complex, we just return the TMDB data.
-            Result.success(movies)
+            val tmdbIds = tmdbResponse.results.map { it.id.toLong() }
+            
+            if (tmdbIds.isEmpty()) {
+                return getFallbackTrending(type)
+            }
+            
+            // Check which popular items exist on our FTP server
+            val localMatches = when(type) {
+                "tv" -> movieDao.getTvSeriesByTmdbIds(tmdbIds)
+                "movie" -> movieDao.getMoviesByTmdbIds(tmdbIds)
+                else -> movieDao.getAllByTmdbIds(tmdbIds)
+            }
+            
+            // Re-sort local matches to strictly preserve TMDB's official global ranking order
+            val sortedMatches = localMatches.sortedBy { match -> tmdbIds.indexOf(match.movie.tmdbId) }
+            
+            if (sortedMatches.isNotEmpty()) {
+                Result.success(sortedMatches.map { it.toDomainModel() })
+            } else {
+                getFallbackTrending(type)
+            }
         } catch (e: Exception) {
-            Result.failure(e)
+            android.util.Log.e("MovieRepositoryImpl", "Error getting TMDB trending, falling back", e)
+            getFallbackTrending(type)
         }
     }
 
@@ -327,35 +236,63 @@ class MovieRepositoryImpl @Inject constructor(
     }
 
     override suspend fun getMovieStreamUrl(folderUrl: String): Result<String> {
+        // If it's a direct file URL, just return it.
+        // Or if it's already a quality URL from videos list, just use it.
+        return Result.success(folderUrl)
+    }
+
+    override suspend fun getTmdbSeasonDetails(tvId: Int, seasonNumber: Int): Result<com.potflix.data.remote.TmdbSeasonResponse> {
         return try {
-            val ext = folderUrl.substringBefore('?').substringAfterLast('.', "").lowercase()
-            if (ext in listOf("mkv", "mp4", "avi", "wmv", "mov", "flv", "webm", "ts", "m2ts", "vob", "m4v")) {
-                return Result.success(folderUrl)
-            }
-
-            val entries = PotFlixScraper.scrapeDirectory(folderUrl)
-            val video = entries.find { it.isVideo }
-            if (video != null) {
-                return Result.success(video.url)
-            }
-
-            // Check subfolders if video is nested in a subdirectory
-            val subFolders = entries.filter { it.isDirectory }
-            for (sub in subFolders) {
-                val subEntries = PotFlixScraper.scrapeDirectory(sub.url)
-                val subVideo = subEntries.find { it.isVideo }
-                if (subVideo != null) {
-                    return Result.success(subVideo.url)
-                }
-            }
-
-            Result.failure(Exception("No video file found in folder"))
+            val response = api.getTvSeason(tvId, seasonNumber)
+            Result.success(response)
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
 
-    override suspend fun getTmdbSeasonDetails(tvId: Int, seasonNumber: Int): Result<com.potflix.data.remote.TmdbSeasonResponse> {
-        return Result.failure(Exception("Not implemented in this repository"))
+    override suspend fun getGenres(): Result<List<Genre>> {
+        return try {
+            val entities = movieDao.getAllGenres()
+            Result.success(entities.map { Genre(id = it.id, name = it.name) })
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun getMoviesByGenre(genreId: Long, type: String, limit: Int): Result<List<Movie>> {
+        return try {
+            val movies = if (type == "tv") {
+                movieDao.getTvSeriesByGenreId(genreId, limit)
+            } else {
+                movieDao.getMoviesByGenreId(genreId, limit)
+            }
+            Result.success(movies.map { it.toDomainModel() })
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun addToWatchHistory(movie: Movie) {
+        val currentHistory = _watchHistory.value.toMutableList()
+        // Remove if already exists to move it to the front
+        val existingIndex = currentHistory.indexOfFirst { it.url == movie.url }
+        if (existingIndex != -1) {
+            currentHistory.removeAt(existingIndex)
+        }
+        currentHistory.add(0, movie)
+        
+        // Keep only top 15
+        if (currentHistory.size > 15) {
+            currentHistory.removeLast()
+        }
+        
+        _watchHistory.value = currentHistory
+        
+        // Save to SharedPreferences asynchronously so it doesn't block
+        prefs.edit().putString("history", gson.toJson(currentHistory)).apply()
+    }
+
+    override fun getWatchHistoryFlow(): Flow<List<Movie>> {
+        return _watchHistory.asStateFlow()
     }
 }
