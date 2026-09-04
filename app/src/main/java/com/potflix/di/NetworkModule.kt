@@ -64,4 +64,10 @@ object NetworkModule {
     fun provideTmdbApi(retrofit: Retrofit): com.potflix.data.remote.TmdbApi {
         return retrofit.create(com.potflix.data.remote.TmdbApi::class.java)
     }
+
+    @Provides
+    @Singleton
+    fun provideAListScraper(okHttpClient: OkHttpClient): com.potflix.data.remote.AListScraper {
+        return com.potflix.data.remote.AListScraper(okHttpClient, "https://cdn.nagordola.com.bd/")
+    }
 }

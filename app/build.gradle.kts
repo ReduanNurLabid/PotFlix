@@ -14,7 +14,11 @@ val localPropertiesFile = rootProject.file("local.properties")
 if (localPropertiesFile.exists()) {
     localProperties.load(FileInputStream(localPropertiesFile))
 }
-val tmdbApiKey = localProperties.getProperty("TMDB_API_KEY") ?: ""
+val tmdbApiKey = localProperties.getProperty("TMDB_API_KEY") ?: System.getenv("TMDB_API_KEY") ?: ""
+
+base {
+    archivesName.set("potflix")
+}
 
 android {
     namespace = "com.potflix"
@@ -24,8 +28,8 @@ android {
         applicationId = "com.potflix"
         minSdk = 24
         targetSdk = 35
-        versionCode = 2
-        versionName = "1.0.1"
+        versionCode = 212
+        versionName = "2.1.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -33,6 +37,15 @@ android {
         }
 
         buildConfigField("String", "TMDB_API_KEY", "\"$tmdbApiKey\"")
+    }
+
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("arm64-v8a", "armeabi-v7a")
+            isUniversalApk = true
+        }
     }
 
     buildTypes {
@@ -105,6 +118,8 @@ dependencies {
     // Firebase BoM
     implementation(platform("com.google.firebase:firebase-bom:33.7.0"))
     implementation("com.google.firebase:firebase-analytics-ktx")
+    implementation("com.google.firebase:firebase-auth-ktx")
+    implementation("com.google.firebase:firebase-firestore-ktx")
 
     // WorkManager
     implementation(libs.androidx.work.runtime.ktx)

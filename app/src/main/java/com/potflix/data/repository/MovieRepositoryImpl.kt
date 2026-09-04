@@ -27,6 +27,9 @@ class MovieRepositoryImpl @Inject constructor(
     private val movieDao: MovieDao,
     private val api: PotFlixApi,
     private val tmdbApi: TmdbApi,
+    private val serverPreferences: com.potflix.data.local.preferences.ServerPreferences,
+    private val aListScraper: com.potflix.data.remote.AListScraper,
+    private val firebaseSyncManager: com.potflix.data.remote.FirebaseSyncManager,
     @ApplicationContext private val context: Context
 ) : MovieRepository {
 
@@ -44,20 +47,40 @@ class MovieRepositoryImpl @Inject constructor(
         }
     }
 
-    private val categoriesList = listOf(
-        Category("Hollywood", "Hollywood Movies", "movies", "", "🎬"),
-        Category("Bollywood", "Bollywood Movies", "movies", "", "🎭"),
-        Category("Animation", "Animation Movies", "movies", "", "🧸"),
-        Category("Tollywood", "Kolkata Bangla", "movies", "", "🐯"),
-        Category("South Indian", "South Indian", "movies", "", "🪷"),
-        Category("Foreign", "Foreign Movies", "movies", "", "🌍"),
-        Category("TV Series", "English TV Series", "movies", "", "📺"),
-        Category("Korean TV Series", "Korean Web Series", "movies", "", "🇰🇷"),
-        Category("IMDB Top 250", "IMDb Top 250", "movies", "", "⭐")
-    )
-
     override suspend fun getCategories(): Result<List<Category>> {
-        return Result.success(categoriesList)
+        return try {
+            val distinctNames = movieDao.getDistinctCategories()
+            
+            // Format "movies-english" into "Movies English"
+            val dynamicCategories = distinctNames.map { rawName ->
+                val formattedTitle = rawName.split("-").joinToString(" ") { word -> 
+                    word.replaceFirstChar { if (it.isLowerCase()) it.titlecase(java.util.Locale.getDefault()) else it.toString() }
+                }
+                
+                // Try to assign a relevant emoji
+                val emoji = when {
+                    rawName.contains("animation", ignoreCase = true) -> "🧸"
+                    rawName.contains("hindi", ignoreCase = true) -> "🎭"
+                    rawName.contains("korean", ignoreCase = true) -> "🇰🇷"
+                    rawName.contains("bangla", ignoreCase = true) -> "🐯"
+                    rawName.contains("foreign", ignoreCase = true) -> "🌍"
+                    rawName.contains("tv", ignoreCase = true) -> "📺"
+                    else -> "🎬"
+                }
+
+                Category(
+                    id = rawName,
+                    name = formattedTitle,
+                    type = "movies", // Default, not heavily used for filtering right now
+                    url = "", 
+                    icon = emoji
+                )
+            }
+            
+            Result.success(dynamicCategories)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 
     override suspend fun getLatestMovies(categoryId: String, limit: Int): Result<List<Movie>> {
@@ -67,7 +90,8 @@ class MovieRepositoryImpl @Inject constructor(
             } else {
                 movieDao.getRandomMoviesByCategory(categoryId, limit)
             }
-            Result.success(moviesWithDetails.map { it.toDomainModel() })
+            val activeServer = serverPreferences.activeServer.value
+            Result.success(moviesWithDetails.map { it.toDomainModel(activeServer) })
         } catch (e: Exception) {
             android.util.Log.e("MovieRepositoryImpl", "Error getting latest movies", e)
             Result.failure(e)
@@ -77,7 +101,8 @@ class MovieRepositoryImpl @Inject constructor(
     override suspend fun searchMovies(query: String): Result<List<Movie>> {
         return try {
             val results = movieDao.searchMovies(query)
-            Result.success(results.map { it.toDomainModel() })
+            val activeServer = serverPreferences.activeServer.value
+            Result.success(results.map { it.toDomainModel(activeServer) })
         } catch (e: Exception) {
             android.util.Log.e("MovieRepositoryImpl", "Error searching movies", e)
             Result.failure(e)
@@ -110,7 +135,15 @@ class MovieRepositoryImpl @Inject constructor(
     override suspend fun getSeriesEpisodes(url: String): Result<List<Season>> {
         // For TV Shows, we still need to scrape the FTP because TV shows are not fully modeled in movies.db yet
         return try {
-            val entries = PotFlixScraper.scrapeDirectory(url)
+            val activeServer = serverPreferences.activeServer.value
+            val scraper = if (activeServer.type == com.potflix.data.local.preferences.ServerType.ALIST) aListScraper else PotFlixScraper
+            
+            // Map the url to CDN url if it's ALIST
+            val mappedUrl = if (activeServer.type == com.potflix.data.local.preferences.ServerType.ALIST) {
+                com.potflix.util.ServerUrlMapper.mapUrl(url, activeServer)
+            } else url
+
+            val entries = scraper.scrapeDirectory(mappedUrl)
             val seasons = mutableListOf<Season>()
             
             val seasonFolders = entries.filter { it.isDirectory && Regex("(season|s)\\s*\\d+", RegexOption.IGNORE_CASE).containsMatchIn(it.name) }
@@ -119,13 +152,18 @@ class MovieRepositoryImpl @Inject constructor(
             if (seasonFolders.isNotEmpty()) {
                 for (sf in seasonFolders) {
                     try {
-                        val seasonEntries = PotFlixScraper.scrapeDirectory(sf.url)
+                        val seasonEntries = scraper.scrapeDirectory(sf.url)
                         val episodes = seasonEntries.filter { it.isVideo }.map { e ->
                             val epMatch = Regex("S(\\d{1,2})E(\\d{1,2})", RegexOption.IGNORE_CASE).find(e.name)
                                 ?: Regex("E(\\d{1,2})", RegexOption.IGNORE_CASE).find(e.name)
+                                
+                            val resolvedEpisodeUrl = if (activeServer.type == com.potflix.data.local.preferences.ServerType.ALIST && e.url.contains(activeServer.baseUrl)) {
+                                e.url.replace(activeServer.baseUrl, activeServer.baseUrl.trimEnd('/') + "/d/")
+                            } else e.url
+
                             Episode(
                                 title = if (epMatch != null) "Episode ${epMatch.groupValues.last().toInt()}" else e.name,
-                                url = e.url,
+                                url = resolvedEpisodeUrl,
                                 season = Regex("\\d+").find(sf.name)?.value?.toIntOrNull(),
                                 number = epMatch?.groupValues?.last()?.toIntOrNull()
                             )
@@ -145,7 +183,7 @@ class MovieRepositoryImpl @Inject constructor(
                     val allVideos = mutableListOf<com.potflix.data.remote.ScrapedEntry>()
                     for (sub in subDirs) {
                         try {
-                            val subEntries = PotFlixScraper.scrapeDirectory(sub.url)
+                            val subEntries = scraper.scrapeDirectory(sub.url)
                             allVideos.addAll(subEntries.filter { it.isVideo })
                         } catch (e: Exception) {}
                     }
@@ -156,9 +194,14 @@ class MovieRepositoryImpl @Inject constructor(
                     val episodes = videosToUse.map { e ->
                         val epMatch = Regex("E(\\d{1,3})", RegexOption.IGNORE_CASE).find(e.name)
                             ?: Regex("Episode\\s*(\\d{1,3})", RegexOption.IGNORE_CASE).find(e.name)
+                            
+                        val resolvedEpisodeUrl = if (activeServer.type == com.potflix.data.local.preferences.ServerType.ALIST && e.url.contains(activeServer.baseUrl)) {
+                            e.url.replace(activeServer.baseUrl, activeServer.baseUrl.trimEnd('/') + "/d/")
+                        } else e.url
+
                         Episode(
                             title = if (epMatch != null) "Episode ${epMatch.groupValues.last().toInt()}" else e.name,
-                            url = e.url,
+                            url = resolvedEpisodeUrl,
                             season = 1,
                             number = epMatch?.groupValues?.last()?.toIntOrNull() ?: 0
                         )
@@ -187,7 +230,8 @@ class MovieRepositoryImpl @Inject constructor(
                 "movie" -> movieDao.getRecentHighRatedMovies(minYear, 10)
                 else -> movieDao.getRecentHighRatedAll(minYear, 10)
             }
-            Result.success(highRated.map { it.toDomainModel() })
+            val activeServer = serverPreferences.activeServer.value
+            Result.success(highRated.map { it.toDomainModel(activeServer) })
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -218,7 +262,8 @@ class MovieRepositoryImpl @Inject constructor(
             val sortedMatches = localMatches.sortedBy { match -> tmdbIds.indexOf(match.movie.tmdbId) }
             
             if (sortedMatches.isNotEmpty()) {
-                Result.success(sortedMatches.map { it.toDomainModel() })
+                val activeServer = serverPreferences.activeServer.value
+                Result.success(sortedMatches.map { it.toDomainModel(activeServer) })
             } else {
                 getFallbackTrending(type)
             }
@@ -266,7 +311,8 @@ class MovieRepositoryImpl @Inject constructor(
             } else {
                 movieDao.getMoviesByGenreId(genreId, limit)
             }
-            Result.success(movies.map { it.toDomainModel() })
+            val activeServer = serverPreferences.activeServer.value
+            Result.success(movies.map { it.toDomainModel(activeServer) })
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -276,10 +322,21 @@ class MovieRepositoryImpl @Inject constructor(
         val currentHistory = _watchHistory.value.toMutableList()
         // Remove if already exists to move it to the front
         val existingIndex = currentHistory.indexOfFirst { it.url == movie.url }
-        if (existingIndex != -1) {
-            currentHistory.removeAt(existingIndex)
+        val existingMovie = if (existingIndex != -1) currentHistory.removeAt(existingIndex) else null
+        
+        // Preserve existing playback data when re-inserting
+        val movieToInsert = if (existingMovie != null) {
+            movie.copy(
+                playbackPosition = existingMovie.playbackPosition ?: movie.playbackPosition,
+                duration = existingMovie.duration ?: movie.duration,
+                lastPlayedStreamUrl = existingMovie.lastPlayedStreamUrl ?: movie.lastPlayedStreamUrl,
+                isWatched = existingMovie.isWatched
+            )
+        } else {
+            movie
         }
-        currentHistory.add(0, movie)
+        
+        currentHistory.add(0, movieToInsert)
         
         // Keep only top 15
         if (currentHistory.size > 15) {
@@ -290,9 +347,53 @@ class MovieRepositoryImpl @Inject constructor(
         
         // Save to SharedPreferences asynchronously so it doesn't block
         prefs.edit().putString("history", gson.toJson(currentHistory)).apply()
+        firebaseSyncManager.syncWatchHistory(currentHistory)
     }
 
     override fun getWatchHistoryFlow(): Flow<List<Movie>> {
         return _watchHistory.asStateFlow()
+    }
+
+    override suspend fun updateWatchProgress(movieUrl: String, streamUrl: String, position: Long, duration: Long) {
+        if (position <= 0L && duration <= 0L) return // Nothing to save
+        
+        val currentHistory = _watchHistory.value.toMutableList()
+        val index = currentHistory.indexOfFirst { it.url == movieUrl }
+        val isWatched = duration > 0 && position >= (duration * 0.9)
+        
+        if (index != -1) {
+            currentHistory[index] = currentHistory[index].copy(
+                playbackPosition = if (isWatched) 0L else position,
+                duration = duration,
+                lastPlayedStreamUrl = streamUrl,
+                isWatched = isWatched
+            )
+        } else {
+            // Movie not in history yet — add it
+            val title = movieUrl.substringAfterLast("/").substringBeforeLast(".")
+            currentHistory.add(0, Movie(
+                title = title,
+                url = movieUrl,
+                type = "movie",
+                playbackPosition = if (isWatched) 0L else position,
+                duration = duration,
+                lastPlayedStreamUrl = streamUrl,
+                isWatched = isWatched
+            ))
+            if (currentHistory.size > 15) {
+                currentHistory.removeLast()
+            }
+        }
+        
+        _watchHistory.value = currentHistory
+        prefs.edit().putString("history", gson.toJson(currentHistory)).apply()
+        firebaseSyncManager.syncWatchHistory(currentHistory)
+        
+        // Globally track watched streams
+        if (isWatched) {
+            val watchedSet = prefs.getStringSet("watched_streams", mutableSetOf())?.toMutableSet() ?: mutableSetOf()
+            watchedSet.add(streamUrl)
+            prefs.edit().putStringSet("watched_streams", watchedSet).apply()
+        }
     }
 }

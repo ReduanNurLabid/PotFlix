@@ -12,11 +12,22 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -24,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.potflix.domain.model.Movie
+import androidx.compose.foundation.border
 
 @Composable
 fun MovieCard(
@@ -31,17 +43,31 @@ fun MovieCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    var isFocused by remember { mutableStateOf(false) }
+    
     Card(
         modifier = modifier
             .width(135.dp)
             .height(200.dp)
             .padding(4.dp)
+            .scale(if (isFocused) 1.08f else 1f)
+            .then(
+                if (isFocused) Modifier.border(2.dp, Color.White, RoundedCornerShape(10.dp))
+                else Modifier
+            )
+            .onFocusChanged { isFocused = it.isFocused }
+            .onKeyEvent { event ->
+                if (event.type == KeyEventType.KeyUp && (event.key == Key.DirectionCenter || event.key == Key.Enter)) {
+                    onClick()
+                    true
+                } else false
+            }
             .clickable { onClick() },
         shape = RoundedCornerShape(10.dp),
         colors = CardDefaults.cardColors(
             containerColor = Color(0xFF1E1E24)
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = if (isFocused) 12.dp else 4.dp)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             AsyncImage(
@@ -137,6 +163,20 @@ fun MovieCard(
                         color = Color.White.copy(alpha = 0.7f)
                     )
                 }
+            }
+            
+            // Progress Bar for Continue Watching
+            if (movie.duration != null && movie.playbackPosition != null && movie.duration > 0 && movie.playbackPosition > 0) {
+                val progress = (movie.playbackPosition.toFloat() / movie.duration.toFloat()).coerceIn(0f, 1f)
+                androidx.compose.material3.LinearProgressIndicator(
+                    progress = { progress },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(4.dp)
+                        .align(Alignment.BottomCenter),
+                    color = Color.Red,
+                    trackColor = Color.Black.copy(alpha = 0.5f)
+                )
             }
         }
     }

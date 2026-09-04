@@ -1,10 +1,10 @@
 name: PotFlix Firebase Incremental Sync
 
 on:
-  schedule:
-    # Run every 6 hours automatically (At minute 0 past every 6th hour)
-    - cron: '0 */6 * * *'
-  workflow_dispatch: # Allows manual trigger from GitHub UI
+  # schedule:
+  #   # Disabled automatic cron to prevent failure emails (sync_to_firebase.py requires local BDIX connectivity)
+  #   - cron: '0 */6 * * *'
+  workflow_dispatch: # Allows manual trigger from GitHub UI if needed
 
 jobs:
   sync:

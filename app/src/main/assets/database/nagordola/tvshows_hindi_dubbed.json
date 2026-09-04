@@ -1,0 +1,189 @@
+[
+  {
+    "title": "Alice in Borderland",
+    "year": "2020",
+    "category": "tvshows-hindi-dubbed",
+    "posterUrl": "https://image.tmdb.org/t/p/w342/Ac8ruycRXzgcsndTZFK6ouGA0FA.jpg",
+    "tmdbId": 110316,
+    "overview": "With his two friends, a video-game-obsessed young man finds himself in a strange version of Tokyo where they must compete in dangerous games to win.",
+    "rating": 8.093,
+    "isTvSeries": true,
+    "videos": [
+      {
+        "name": "Alice in Borderland (2020)",
+        "url": "https://cdn.nagordola.com.bd/tv-series/tvshows-hindi-dubbed/Alice%20in%20Borderland%20%282020%29",
+        "quality": "Tv & Web Series"
+      }
+    ]
+  },
+  {
+    "title": "Better Call Saul",
+    "year": "",
+    "category": "tvshows-hindi-dubbed",
+    "posterUrl": "https://image.tmdb.org/t/p/w342/zjg4jpK1Wp2kiRvtt5ND0kznako.jpg",
+    "tmdbId": 60059,
+    "overview": "Six years before Saul Goodman meets Walter White. We meet him when the man who will become Saul Goodman is known as Jimmy McGill, a small-time lawyer searching for his destiny, and, more immediately, hustling to make ends meet. Working alongside, and, often, against Jimmy, is “fixer” Mike Ehrmantraut. The series tracks Jimmy’s transformation into Saul Goodman, the man who puts “criminal” in “criminal lawyer\".",
+    "rating": 8.712,
+    "isTvSeries": true,
+    "videos": [
+      {
+        "name": "Better Call Saul",
+        "url": "https://cdn.nagordola.com.bd/tv-series/tvshows-hindi-dubbed/Better%20Call%20Saul",
+        "quality": "Tv & Web Series"
+      }
+    ]
+  },
+  {
+    "title": "Breaking Bad",
+    "year": "",
+    "category": "tvshows-hindi-dubbed",
+    "posterUrl": "https://image.tmdb.org/t/p/w342/anFx9aTOOYqgS3v7x3R84Kz67ly.jpg",
+    "tmdbId": 1396,
+    "overview": "Walter White, a New Mexico chemistry teacher, is diagnosed with Stage III cancer and given a prognosis of only two years left to live. He becomes filled with a sense of fearlessness and an unrelenting desire to secure his family's financial future at any cost as he enters the dangerous world of drugs and crime.",
+    "rating": 9.0,
+    "isTvSeries": true,
+    "videos": [
+      {
+        "name": "Breaking Bad",
+        "url": "https://cdn.nagordola.com.bd/tv-series/tvshows-hindi-dubbed/Breaking%20Bad",
+        "quality": "Tv & Web Series"
+      }
+    ]
+  },
+  {
+    "title": "From",
+    "year": "",
+    "category": "tvshows-hindi-dubbed",
+    "posterUrl": "https://image.tmdb.org/t/p/w342/pRtJagIxpfODzzb0T0NAvZSzErC.jpg",
+    "tmdbId": 124364,
+    "overview": "Unravel the mystery of a nightmarish town in middle America that traps all those who enter. As the unwilling residents fight to keep a sense of normalcy and search for a way out, they must also survive the threats of the surrounding forest – including the terrifying creatures that come out when the sun goes down.",
+    "rating": 8.495,
+    "isTvSeries": true,
+    "videos": [
+      {
+        "name": "From",
+        "url": "https://cdn.nagordola.com.bd/tv-series/tvshows-hindi-dubbed/From",
+        "quality": "Tv & Web Series"
+      }
+    ]
+  },
+  {
+    "title": "Game of Thrones",
+    "year": "",
+    "category": "tvshows-hindi-dubbed",
+    "posterUrl": "https://image.tmdb.org/t/p/w342/1XS1oqL89opfnbLl8WnZY1O1uJx.jpg",
+    "tmdbId": 1399,
+    "overview": "Seven noble families fight for control of the mythical land of Westeros. Friction between the houses leads to full-scale war. All while a very ancient evil awakens in the farthest north. Amidst the war, a neglected military order of misfits, the Night's Watch, is all that stands between the realms of men and icy horrors beyond.",
+    "rating": 8.47,
+    "isTvSeries": true,
+    "videos": [
+      {
+        "name": "Game of Thrones",
+        "url": "https://cdn.nagordola.com.bd/tv-series/tvshows-hindi-dubbed/Game%20of%20Thrones",
+        "quality": "Tv & Web Series"
+      }
+    ]
+  },
+  {
+    "title": "House of the Dragon",
+    "year": "",
+    "category": "tvshows-hindi-dubbed",
+    "posterUrl": "https://image.tmdb.org/t/p/w342/7V0Ebks0GgpKvQ7QbLAIdX5dos4.jpg",
+    "tmdbId": 94997,
+    "overview": "The Targaryen dynasty is at the absolute apex of its power, with more than 15 dragons under their yoke. Most empires crumble from such heights. In the case of the Targaryens, their slow fall begins when King Viserys breaks with a century of tradition by naming his daughter Rhaenyra heir to the Iron Throne. But when Viserys later fathers a son, the court is shocked when Rhaenyra retains her status as his heir, and seeds of division sow friction across the realm.",
+    "rating": 8.385,
+    "isTvSeries": true,
+    "videos": [
+      {
+        "name": "House of the Dragon",
+        "url": "https://cdn.nagordola.com.bd/tv-series/tvshows-hindi-dubbed/House%20of%20the%20Dragon",
+        "quality": "Tv & Web Series"
+      }
+    ]
+  },
+  {
+    "title": "Sweet Home",
+    "year": "",
+    "category": "tvshows-hindi-dubbed",
+    "posterUrl": "https://image.tmdb.org/t/p/w342/zcugNxDg59YwIf3dUHsrHmO7pc1.jpg",
+    "tmdbId": 96648,
+    "overview": "As humans turn into savage monsters and the world plunges into terror, a handful of survivors fight for their lives — and to hold on to their humanity.",
+    "rating": 8.211,
+    "isTvSeries": true,
+    "videos": [
+      {
+        "name": "Sweet Home",
+        "url": "https://cdn.nagordola.com.bd/tv-series/tvshows-hindi-dubbed/Sweet%20Home",
+        "quality": "Tv & Web Series"
+      }
+    ]
+  },
+  {
+    "title": "The Boys",
+    "year": "",
+    "category": "tvshows-hindi-dubbed",
+    "posterUrl": "https://image.tmdb.org/t/p/w342/in1R2dDc421JxsoRWaIIAqVI2KE.jpg",
+    "tmdbId": 76479,
+    "overview": "A group of vigilantes known informally as “The Boys” set out to take down corrupt superheroes with no more than blue-collar grit and a willingness to fight dirty.",
+    "rating": 8.435,
+    "isTvSeries": true,
+    "videos": [
+      {
+        "name": "The Boys",
+        "url": "https://cdn.nagordola.com.bd/tv-series/tvshows-hindi-dubbed/The%20Boys",
+        "quality": "Tv & Web Series"
+      }
+    ]
+  },
+  {
+    "title": "The Lord of the Rings - The Rings of Power",
+    "year": "",
+    "category": "tvshows-hindi-dubbed",
+    "posterUrl": "https://image.tmdb.org/t/p/w342/kf5Hz70tjNAHg4swGDzOr9BfoZ1.jpg",
+    "tmdbId": 84773,
+    "overview": "Beginning in a time of relative peace, we follow an ensemble cast of characters as they confront the re-emergence of evil to Middle-earth. From the darkest depths of the Misty Mountains, to the majestic forests of Lindon, to the breathtaking island kingdom of Númenor, to the furthest reaches of the map, these kingdoms and characters will carve out legacies that live on long after they are gone.",
+    "rating": 7.2,
+    "isTvSeries": true,
+    "videos": [
+      {
+        "name": "The Lord of the Rings - The Rings of Power",
+        "url": "https://cdn.nagordola.com.bd/tv-series/tvshows-hindi-dubbed/The%20Lord%20of%20the%20Rings%20-%20The%20Rings%20of%20Power",
+        "quality": "Tv & Web Series"
+      }
+    ]
+  },
+  {
+    "title": "The Umbrella Academy",
+    "year": "",
+    "category": "tvshows-hindi-dubbed",
+    "posterUrl": "https://image.tmdb.org/t/p/w342/qhcwrnnCnN8NE1N6XXKHFmveJR9.jpg",
+    "tmdbId": 75006,
+    "overview": "Reunited by their father's death, estranged siblings with extraordinary powers uncover shocking family secrets — and a looming threat to humanity.",
+    "rating": 8.458,
+    "isTvSeries": true,
+    "videos": [
+      {
+        "name": "The Umbrella Academy",
+        "url": "https://cdn.nagordola.com.bd/tv-series/tvshows-hindi-dubbed/The%20Umbrella%20Academy",
+        "quality": "Tv & Web Series"
+      }
+    ]
+  },
+  {
+    "title": "True Detective",
+    "year": "",
+    "category": "tvshows-hindi-dubbed",
+    "posterUrl": "https://image.tmdb.org/t/p/w342/dC7jkj2g1aU8sxKqM6D4g44xA6w.jpg",
+    "tmdbId": 46648,
+    "overview": "An American anthology police detective series utilizing multiple timelines in which investigations seem to unearth personal and professional secrets of those involved, both within or outside the law.",
+    "rating": 8.292,
+    "isTvSeries": true,
+    "videos": [
+      {
+        "name": "True Detective",
+        "url": "https://cdn.nagordola.com.bd/tv-series/tvshows-hindi-dubbed/True%20Detective",
+        "quality": "Tv & Web Series"
+      }
+    ]
+  }
+]

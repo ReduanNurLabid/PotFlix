@@ -11,23 +11,23 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import javax.inject.Inject
-import com.potflix.data.local.dao.LocalMovieDao
+import com.potflix.data.repository.WatchlistRepository
 import com.potflix.data.local.entity.toLocalMovieEntity
 
 @HiltViewModel
 class MoviesViewModel @Inject constructor(
     private val repository: MovieRepository,
-    private val localMovieDao: LocalMovieDao
+    private val watchlistRepository: WatchlistRepository
 ) : ViewModel() {
 
-    private val _genres = MutableStateFlow<List<com.potflix.domain.model.Genre>>(emptyList())
-    val genres = _genres.asStateFlow()
+    private val _categories = MutableStateFlow<List<Category>>(emptyList())
+    val categories = _categories.asStateFlow()
 
     private val _trendingMovies = MutableStateFlow<List<Movie>>(emptyList())
     val trendingMovies = _trendingMovies.asStateFlow()
 
-    private val _genreMovies = MutableStateFlow<Map<String, List<Movie>>>(emptyMap())
-    val genreMovies = _genreMovies.asStateFlow()
+    private val _categoryMovies = MutableStateFlow<Map<String, List<Movie>>>(emptyMap())
+    val categoryMovies = _categoryMovies.asStateFlow()
 
     private val _isLoading = MutableStateFlow(false)
     val isLoading = _isLoading.asStateFlow()
@@ -40,9 +40,9 @@ class MoviesViewModel @Inject constructor(
         viewModelScope.launch {
             val entity = heroMovie.toLocalMovieEntity()
             if (_isHeroInWatchlist.value) {
-                localMovieDao.removeFromWatchlist(entity)
+                watchlistRepository.removeFromWatchlist(entity)
             } else {
-                localMovieDao.addToWatchlist(entity)
+                watchlistRepository.addToWatchlist(entity)
             }
         }
     }
@@ -63,7 +63,7 @@ class MoviesViewModel @Inject constructor(
                     val hero = top10.firstOrNull()
                     if (hero != null) {
                         launch {
-                            localMovieDao.isInWatchlist(hero.url).collectLatest { inWatchlist ->
+                            watchlistRepository.isInWatchlist(hero.url).collectLatest { inWatchlist ->
                                 _isHeroInWatchlist.value = inWatchlist
                             }
                         }
@@ -85,30 +85,35 @@ class MoviesViewModel @Inject constructor(
                     }
                 }
             }
-            repository.getGenres().onSuccess { dbGenres ->
-                val dynamicGenres = mutableListOf<com.potflix.domain.model.Genre>()
-                val dynamicGenreMovies = mutableMapOf<String, List<Movie>>()
+            repository.getCategories().onSuccess { dbCategories ->
+                val dynamicCategories = mutableListOf<Category>()
+                val dynamicCategoryMovies = mutableMapOf<String, List<Movie>>()
                 
-                val selectedGenres = dbGenres.shuffled().take(7)
+                // Filter out TV show categories
+                val movieCategories = dbCategories.filter { 
+                    !it.id.contains("tvshows") && !it.id.contains("Series", ignoreCase = true) 
+                }
+                val selectedCategories = movieCategories.shuffled().take(7)
                 
-                selectedGenres.forEach { genre ->
-                    repository.getMoviesByGenre(genre.id, "movie").onSuccess { moviesInGenre ->
-                        if (moviesInGenre.isNotEmpty()) {
-                            val items = moviesInGenre.take(15)
-                            dynamicGenres.add(genre)
-                            dynamicGenreMovies[genre.id.toString()] = items
+                selectedCategories.forEach { category ->
+                    repository.getLatestMovies(category.id).onSuccess { moviesInCat ->
+                        if (moviesInCat.isNotEmpty()) {
+                            val items = moviesInCat.take(15)
+                            dynamicCategories.add(category)
+                            dynamicCategoryMovies[category.id] = items
                             
+                            // Lazy fetch TMDB details for the row items
                             items.forEach { movie ->
                                 launch {
                                     repository.getMovieDetails(movie).onSuccess { detailedMovie ->
                                         if (detailedMovie.poster != null) {
-                                            val currentMap = _genreMovies.value.toMutableMap()
-                                            val currentList = currentMap[genre.id.toString()]?.toMutableList() ?: return@launch
+                                            val currentMap = _categoryMovies.value.toMutableMap()
+                                            val currentList = currentMap[category.id]?.toMutableList() ?: return@launch
                                             val index = currentList.indexOfFirst { it.url == movie.url }
                                             if (index != -1) {
                                                 currentList[index] = detailedMovie
-                                                currentMap[genre.id.toString()] = currentList
-                                                _genreMovies.value = currentMap
+                                                currentMap[category.id] = currentList
+                                                _categoryMovies.value = currentMap
                                             }
                                         }
                                     }
@@ -117,10 +122,10 @@ class MoviesViewModel @Inject constructor(
                         }
                     }
                 }
-                
-                _genres.value = dynamicGenres
-                _genreMovies.value = dynamicGenreMovies
+                _categories.value = dynamicCategories
+                _categoryMovies.value = dynamicCategoryMovies
             }
+            
             _isLoading.value = false
         }
     }

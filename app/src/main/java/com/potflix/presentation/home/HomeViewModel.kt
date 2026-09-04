@@ -11,14 +11,14 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import javax.inject.Inject
-import com.potflix.data.local.dao.LocalMovieDao
+import com.potflix.data.repository.WatchlistRepository
 import com.potflix.data.local.entity.LocalMovieEntity
 import com.potflix.data.local.entity.toLocalMovieEntity
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val repository: MovieRepository,
-    private val localMovieDao: LocalMovieDao,
+    private val watchlistRepository: WatchlistRepository,
     private val application: android.app.Application
 ) : ViewModel() {
 
@@ -54,9 +54,9 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             val entity = heroMovie.toLocalMovieEntity()
             if (_isHeroInWatchlist.value) {
-                localMovieDao.removeFromWatchlist(entity)
+                watchlistRepository.removeFromWatchlist(entity)
             } else {
-                localMovieDao.addToWatchlist(entity)
+                watchlistRepository.addToWatchlist(entity)
             }
         }
     }
@@ -103,7 +103,7 @@ class HomeViewModel @Inject constructor(
                     val hero = top10.firstOrNull()
                     if (hero != null) {
                         launch {
-                            localMovieDao.isInWatchlist(hero.url).collectLatest { inWatchlist ->
+                            watchlistRepository.isInWatchlist(hero.url).collectLatest { inWatchlist ->
                                 _isHeroInWatchlist.value = inWatchlist
                             }
                         }

@@ -28,11 +28,11 @@ interface MovieDao {
     suspend fun getRandomMoviesAll(limit: Int): List<MovieWithDetails>
 
     @Transaction
-    @Query("SELECT * FROM movies WHERE category NOT LIKE '%Series%' AND CAST(year AS INTEGER) >= :minYear GROUP BY title, year ORDER BY COALESCE(rating, 0.0) DESC, year DESC LIMIT :limit")
+    @Query("SELECT * FROM movies WHERE category NOT LIKE '%Series%' AND category NOT LIKE 'tvshows%' AND CAST(year AS INTEGER) >= :minYear GROUP BY title, year ORDER BY COALESCE(rating, 0.0) DESC, year DESC LIMIT :limit")
     suspend fun getRecentHighRatedMovies(minYear: Int, limit: Int): List<MovieWithDetails>
     
     @Transaction
-    @Query("SELECT * FROM movies WHERE category LIKE '%Series%' AND CAST(year AS INTEGER) >= :minYear GROUP BY title, year ORDER BY COALESCE(rating, 0.0) DESC, year DESC LIMIT :limit")
+    @Query("SELECT * FROM movies WHERE (category LIKE '%Series%' OR category LIKE 'tvshows%') AND CAST(year AS INTEGER) >= :minYear GROUP BY title, year ORDER BY COALESCE(rating, 0.0) DESC, year DESC LIMIT :limit")
     suspend fun getRecentHighRatedTv(minYear: Int, limit: Int): List<MovieWithDetails>
 
     @Transaction
@@ -40,11 +40,11 @@ interface MovieDao {
     suspend fun getRecentHighRatedAll(minYear: Int, limit: Int): List<MovieWithDetails>
 
     @Transaction
-    @Query("SELECT * FROM movies WHERE tmdb_id IN (:tmdbIds) AND category LIKE '%Series%'")
+    @Query("SELECT * FROM movies WHERE tmdb_id IN (:tmdbIds) AND (category LIKE '%Series%' OR category LIKE 'tvshows%')")
     suspend fun getTvSeriesByTmdbIds(tmdbIds: List<Long>): List<MovieWithDetails>
 
     @Transaction
-    @Query("SELECT * FROM movies WHERE tmdb_id IN (:tmdbIds) AND category NOT LIKE '%Series%'")
+    @Query("SELECT * FROM movies WHERE tmdb_id IN (:tmdbIds) AND category NOT LIKE '%Series%' AND category NOT LIKE 'tvshows%'")
     suspend fun getMoviesByTmdbIds(tmdbIds: List<Long>): List<MovieWithDetails>
 
     @Transaction
@@ -100,6 +100,15 @@ interface MovieDao {
     @Query("SELECT * FROM categories")
     suspend fun getCategories(): List<CategoryEntity>
     
+    @Query("SELECT DISTINCT category FROM movies WHERE category IS NOT NULL AND category != ''")
+    suspend fun getDistinctCategories(): List<String>
+    
+    @Query("SELECT COUNT(*) FROM movies WHERE category = :category")
+    suspend fun getCountForCategory(category: String): Int
+
+    @Query("SELECT COUNT(*) FROM movies WHERE category = :category AND year = :year")
+    suspend fun getCountForCategoryAndYear(category: String, year: String): Int
+    
     @Query("SELECT * FROM categories")
     fun getCategoriesFlow(): Flow<List<CategoryEntity>>
 
@@ -112,7 +121,7 @@ interface MovieDao {
         SELECT m.* FROM movies m
         INNER JOIN movie_genres mg ON m.id = mg.movie_id
         INNER JOIN genres g ON mg.genre_id = g.id
-        WHERE g.id = :genreId AND m.category NOT LIKE '%Series%'
+        WHERE g.id = :genreId AND m.category NOT LIKE '%Series%' AND m.category NOT LIKE 'tvshows%'
         GROUP BY m.title, m.year
         ORDER BY RANDOM()
         LIMIT :limit
@@ -124,7 +133,7 @@ interface MovieDao {
         SELECT m.* FROM movies m
         INNER JOIN movie_genres mg ON m.id = mg.movie_id
         INNER JOIN genres g ON mg.genre_id = g.id
-        WHERE g.id = :genreId AND m.category LIKE '%Series%'
+        WHERE g.id = :genreId AND (m.category LIKE '%Series%' OR m.category LIKE 'tvshows%')
         GROUP BY m.title, m.year
         ORDER BY RANDOM()
         LIMIT :limit

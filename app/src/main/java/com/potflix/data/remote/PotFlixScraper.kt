@@ -19,9 +19,13 @@ data class ScrapedEntry(
     val seriesInfo: String? = null
 )
 
-object PotFlixScraper {
+interface DirectoryScraper {
+    suspend fun scrapeDirectory(url: String): List<ScrapedEntry>
+}
 
-    suspend fun scrapeDirectory(url: String): List<ScrapedEntry> = withContext(Dispatchers.IO) {
+object PotFlixScraper : DirectoryScraper {
+
+    override suspend fun scrapeDirectory(url: String): List<ScrapedEntry> = withContext(Dispatchers.IO) {
         try {
             val safeUrl = url.replace("[", "%5B").replace("]", "%5D")
             val doc = Jsoup.connect(safeUrl)

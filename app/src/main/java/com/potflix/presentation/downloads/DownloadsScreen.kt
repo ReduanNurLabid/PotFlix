@@ -72,7 +72,7 @@ fun DownloadItemCard(download: LocalDownloadEntity, navController: NavController
     Card(
         modifier = Modifier.fillMaxWidth().clickable {
             if (download.status == DownloadService.STATUS_SUCCESSFUL && download.localUri != null) {
-                navController.navigate(Screen.Player.createRoute(download.localUri, download.title))
+                navController.navigate(Screen.Player.createRoute(download.localUri, download.localUri, download.title))
             }
         },
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -139,7 +139,7 @@ fun DownloadItemCard(download: LocalDownloadEntity, navController: NavController
                 if (download.status == DownloadService.STATUS_SUCCESSFUL) {
                     IconButton(onClick = { 
                         if (download.localUri != null) {
-                            navController.navigate(Screen.Player.createRoute(download.localUri, download.title))
+                            navController.navigate(Screen.Player.createRoute(download.localUri, download.localUri, download.title))
                         }
                     }) {
                         Icon(Icons.Default.PlayArrow, contentDescription = "Play", tint = MaterialTheme.colorScheme.primary)

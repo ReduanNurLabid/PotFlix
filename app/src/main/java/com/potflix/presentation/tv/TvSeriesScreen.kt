@@ -36,9 +36,9 @@ fun TvSeriesScreen(
     navController: NavController,
     viewModel: TvSeriesViewModel = hiltViewModel()
 ) {
-    val genres by viewModel.genres.collectAsState()
+    val categories by viewModel.categories.collectAsState()
     val trendingSeries by viewModel.trendingTv.collectAsState()
-    val genreSeries by viewModel.genreTv.collectAsState()
+    val categorySeries by viewModel.categoryTv.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val isHeroInWatchlist by viewModel.isHeroInWatchlist.collectAsState()
 
@@ -47,7 +47,7 @@ fun TvSeriesScreen(
             .fillMaxSize()
             .background(Color(0xFF0A0A0A))
     ) {
-        if (isLoading && genres.isEmpty()) {
+        if (isLoading && categories.isEmpty()) {
             Box(modifier = Modifier.padding(top = 90.dp)) {
                 ScreenSkeleton()
             }
@@ -89,30 +89,25 @@ fun TvSeriesScreen(
                     }
                 }
 
-                // Genre Rows
+                // Category Rows
                 items(
-                    items = genres,
+                    items = categories,
                     key = { it.id },
-                    contentType = { "genreRow" }
-                ) { genre ->
-                    val seriesList = genreSeries[genre.id.toString()] ?: emptyList()
+                    contentType = { "categoryRow" }
+                ) { category ->
+                    val seriesList = categorySeries[category.id] ?: emptyList()
                     if (seriesList.isNotEmpty()) {
                         CategoryRow(
-                            category = com.potflix.domain.model.Category(
-                                id = genre.id.toString(), 
-                                name = genre.name, 
-                                type = "genre", 
-                                url = "", 
-                                icon = ""
-                            ),
+                            category = category,
                             movies = seriesList,
                             onMovieClick = { movie ->
                                 navController.navigate(Screen.Detail.createRoute(movie))
                             },
                             onSeeAllClick = {
-                                navController.navigate(Screen.CategoryDetail.createRoute(genre.id.toString(), genre.name, "genre_tv"))
+                                navController.navigate(Screen.CategoryDetail.createRoute(category.id, category.name, "category_tv"))
                             }
                         )
+                        Spacer(modifier = Modifier.height(16.dp))
                     }
                 }
 
@@ -152,15 +147,15 @@ fun TvSeriesScreen(
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Image(
-                        painter = painterResource(id = R.drawable.ic_potflix_logo),
+                        painter = painterResource(id = R.drawable.ic_potflix_logo_vector),
                         contentDescription = "PotFlix",
                         modifier = Modifier.height(40.dp)
                     )
                     Text(
                         text = "TV Series",
                         style = MaterialTheme.typography.titleLarge.copy(
-                            fontWeight = FontWeight.ExtraBold,
-                            fontSize = 26.sp
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 22.sp
                         ),
                         color = Color.White
                     )

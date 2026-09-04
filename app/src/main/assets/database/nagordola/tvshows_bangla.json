@@ -1,0 +1,70 @@
+[
+  {
+    "title": "Abar Proloy",
+    "year": "",
+    "category": "tvshows-bangla",
+    "posterUrl": "https://image.tmdb.org/t/p/w342/duDumAnTIL9S9SPE37DPJS3isBb.jpg",
+    "tmdbId": 232136,
+    "overview": "Crime Branch officer Animesh Datta is on a mission to catch the mastermind of a girl child trafficking racket in the Sunderbans. Will he be able to track down the culprit before more young girls disappear?",
+    "rating": 7.0,
+    "isTvSeries": true,
+    "videos": [
+      {
+        "name": "Abar Proloy",
+        "url": "https://cdn.nagordola.com.bd/tv-series/tvshows-bangla/Abar%20Proloy",
+        "quality": "Tv & Web Series"
+      }
+    ]
+  },
+  {
+    "title": "Dakghor",
+    "year": "",
+    "category": "tvshows-bangla",
+    "posterUrl": "https://image.tmdb.org/t/p/w342/2LRBvpyUE0jIOnISnQhHV79gmCp.jpg",
+    "tmdbId": 220772,
+    "overview": "Damodar Das comes to the remote village of Hagda as its new postmaster. While their simple aspirations and pure emotions slowly do away with Damodar's reservations, he keeps searching for a sliver of his long-lost childhood.",
+    "rating": 6.0,
+    "isTvSeries": true,
+    "videos": [
+      {
+        "name": "Dakghor",
+        "url": "https://cdn.nagordola.com.bd/tv-series/tvshows-bangla/Dakghor",
+        "quality": "Tv & Web Series"
+      }
+    ]
+  },
+  {
+    "title": "Feluda Pherot",
+    "year": "",
+    "category": "tvshows-bangla",
+    "posterUrl": "https://image.tmdb.org/t/p/w342/tr138bcExDum8GGwkIJ0Q2ITOaJ.jpg",
+    "tmdbId": 301589,
+    "overview": "Jawto Kando Kathmandute is a Feluda mystery where the detective travels to Kathmandu with Topse and Jatayu to investigate a murder and a fake medicine racket, ultimately confronting Maganlal Meghraj, a familiar antagonist.",
+    "rating": 0.0,
+    "isTvSeries": true,
+    "videos": [
+      {
+        "name": "Feluda Pherot",
+        "url": "https://cdn.nagordola.com.bd/tv-series/tvshows-bangla/Feluda%20Pherot",
+        "quality": "Tv & Web Series"
+      }
+    ]
+  },
+  {
+    "title": "Indu",
+    "year": "",
+    "category": "tvshows-bangla",
+    "posterUrl": "https://image.tmdb.org/t/p/w342/l4eW1ElgM429TLUguJRho4NJaPU.jpg",
+    "tmdbId": 135152,
+    "overview": "Huge mansions have heinous secrets. As clandestine family ties, scandals and uncanny deaths spiral around the dark hallways of Indu's home, she leaves no stone unturned to untangle the mystery.",
+    "rating": 2.0,
+    "isTvSeries": true,
+    "videos": [
+      {
+        "name": "Indu",
+        "url": "https://cdn.nagordola.com.bd/tv-series/tvshows-bangla/Indu",
+        "quality": "Tv & Web Series"
+      }
+    ]
+  }
+]

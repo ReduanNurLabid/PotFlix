@@ -1,0 +1,980 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PotFlix — Stream Movies & TV Shows (BDIX Only)</title>
+  <meta name="description" content="Stream Movies & TV Shows. Any BDIX Network, Anytime. Blazing-fast streaming, seamless server switching, and built-in offline downloads on Android for BDIX connected networks only." />
+  <link rel="icon" type="image/svg+xml" href="logo.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #E50914;
+      --primary-hover: #ff1a26;
+      --bg: #05050A;
+      --card-bg: #12121c;
+      --border: rgba(255, 255, 255, 0.1);
+      --text: #F0F0F0;
+      --text-muted: #9090A0;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Outfit', sans-serif;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    /* Ambient background glow */
+    .glow {
+      position: absolute;
+      width: 500px;
+      height: 500px;
+      background: radial-gradient(circle, rgba(229, 9, 20, 0.15) 0%, rgba(0, 0, 0, 0) 70%);
+      top: -100px;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    .container {
+      max-width: 720px;
+      width: 90%;
+      margin: 40px auto;
+      text-align: center;
+      position: relative;
+      z-index: 1;
+    }
+
+    .logo-container {
+      margin-bottom: 24px;
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo-icon {
+      width: 64px;
+      height: 64px;
+      object-fit: contain;
+      filter: drop-shadow(0 0 16px rgba(229, 9, 20, 0.4));
+    }
+
+    .logo-text {
+      font-size: 38px;
+      font-weight: 900;
+      letter-spacing: 1px;
+    }
+
+    .logo-text span {
+      color: var(--primary);
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 6px 14px;
+      background: rgba(229, 9, 20, 0.15);
+      border: 1px solid rgba(229, 9, 20, 0.3);
+      color: #ff4d55;
+      font-size: 13px;
+      font-weight: 700;
+      border-radius: 99px;
+      margin-bottom: 20px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    h1 {
+      font-size: 42px;
+      font-weight: 800;
+      line-height: 1.2;
+      margin-bottom: 16px;
+    }
+
+    p.subtitle {
+      font-size: 18px;
+      color: var(--text-muted);
+      line-height: 1.6;
+      margin-bottom: 36px;
+    }
+
+    /* Primary Download Button */
+    .btn-main {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      background: var(--primary);
+      color: white;
+      text-decoration: none;
+      padding: 18px 32px;
+      font-size: 20px;
+      font-weight: 700;
+      border-radius: 14px;
+      transition: all 0.25s ease;
+      box-shadow: 0 10px 30px rgba(229, 9, 20, 0.4);
+      margin-bottom: 16px;
+    }
+
+    .btn-main:hover {
+      background: var(--primary-hover);
+      transform: translateY(-2px);
+      box-shadow: 0 14px 40px rgba(229, 9, 20, 0.55);
+    }
+
+    .sub-note {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 32px;
+    }
+
+    /* Secondary Options Card */
+    .other-devices {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px;
+      text-align: left;
+      margin-bottom: 40px;
+    }
+
+    .other-devices h3 {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 16px;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .device-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      gap: 16px;
+    }
+
+    .device-row:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+
+    .device-info h4 {
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+
+    .device-info p {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .btn-small {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 8px;
+      color: white;
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 600;
+      white-space: nowrap;
+      transition: background 0.2s;
+    }
+
+    .btn-small:hover {
+      background: rgba(255, 255, 255, 0.18);
+    }
+
+    /* Features Grid */
+    .features {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 40px;
+      text-align: left;
+    }
+
+    .feature-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border);
+      padding: 20px;
+      border-radius: 12px;
+    }
+
+    .feature-icon {
+      font-size: 24px;
+      margin-bottom: 8px;
+    }
+
+    .feature-card h4 {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    .feature-card p {
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+
+    footer {
+      padding: 24px;
+      text-align: center;
+      font-size: 13px;
+      color: var(--text-muted);
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+      width: 100%;
+    }
+
+    footer a {
+      color: var(--text);
+      text-decoration: none;
+    }
+
+    @media (max-width: 600px) {
+      h1 { font-size: 32px; }
+      p.subtitle { font-size: 16px; }
+      .btn-main { font-size: 18px; padding: 16px 24px; }
+    }
+
+    /* Wi-Fi Tester Component */
+    .tester-card {
+      background: linear-gradient(135deg, rgba(30, 30, 48, 0.6) 0%, rgba(18, 18, 28, 0.9) 100%);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px;
+      text-align: left;
+      margin-bottom: 40px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    }
+
+    .tester-header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+
+    .tester-icon-badge {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: rgba(229, 9, 20, 0.15);
+      border: 1px solid rgba(229, 9, 20, 0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      flex-shrink: 0;
+    }
+
+    .tester-header h3 {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .tester-header p {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .server-status-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+
+    .server-status-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 16px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      border-radius: 10px;
+      gap: 12px;
+    }
+
+    .server-name {
+      display: block;
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .server-desc {
+      display: block;
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .status-badge {
+      font-size: 12px;
+      font-weight: 700;
+      padding: 4px 12px;
+      border-radius: 99px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      white-space: nowrap;
+    }
+
+    .status-pending {
+      background: rgba(255, 255, 255, 0.08);
+      color: #aaa;
+    }
+
+    .status-testing {
+      background: rgba(255, 193, 7, 0.15);
+      color: #ffc107;
+      border: 1px solid rgba(255, 193, 7, 0.3);
+    }
+
+    .status-online {
+      background: rgba(0, 230, 118, 0.15);
+      color: #00e676;
+      border: 1px solid rgba(0, 230, 118, 0.3);
+    }
+
+    .status-offline {
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text-muted);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .test-result-banner {
+      padding: 14px 16px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 18px;
+      line-height: 1.5;
+    }
+
+    .banner-success {
+      background: rgba(0, 230, 118, 0.12);
+      border: 1px solid rgba(0, 230, 118, 0.3);
+      color: #00e676;
+    }
+
+    .banner-warning {
+      background: rgba(255, 193, 7, 0.12);
+      border: 1px solid rgba(255, 193, 7, 0.3);
+      color: #ffc107;
+    }
+
+    .btn-test {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 14px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 10px;
+      color: white;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-test:hover {
+      background: rgba(255, 255, 255, 0.14);
+      border-color: rgba(255, 255, 255, 0.35);
+    }
+
+    .btn-test:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .spinner {
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    /* Releases Section Component */
+    .releases-card {
+      background: linear-gradient(135deg, rgba(30, 30, 48, 0.6) 0%, rgba(18, 18, 28, 0.9) 100%);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px;
+      text-align: left;
+      margin-bottom: 40px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    }
+
+    .releases-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .releases-header-left {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .releases-list {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .release-item {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 16px;
+      transition: all 0.2s ease;
+    }
+
+    .release-item:hover {
+      border-color: rgba(255, 255, 255, 0.2);
+      background: rgba(255, 255, 255, 0.045);
+    }
+
+    .release-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+
+    .release-tag-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .release-version {
+      font-size: 16px;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .badge-latest {
+      background: rgba(0, 230, 118, 0.15);
+      color: #00e676;
+      border: 1px solid rgba(0, 230, 118, 0.3);
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 99px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .release-date {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .release-notes {
+      font-size: 13px;
+      color: #aaa;
+      line-height: 1.5;
+      margin-bottom: 12px;
+      word-break: break-word;
+      background: rgba(0, 0, 0, 0.2);
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.04);
+    }
+
+    .release-assets {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .asset-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      padding: 8px 12px;
+      border-radius: 8px;
+      color: var(--text);
+      text-decoration: none;
+      font-size: 12px;
+      font-weight: 600;
+      transition: all 0.2s ease;
+    }
+
+    .asset-btn:hover {
+      background: rgba(229, 9, 20, 0.18);
+      border-color: rgba(229, 9, 20, 0.5);
+      color: #fff;
+      transform: translateY(-1px);
+    }
+
+    .asset-size {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-weight: 400;
+      margin-left: 2px;
+    }
+
+    .btn-refresh-releases {
+      background: transparent;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: var(--text-muted);
+      font-size: 12px;
+      font-weight: 600;
+      padding: 6px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+
+    .btn-refresh-releases:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text);
+      border-color: rgba(255, 255, 255, 0.3);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="glow"></div>
+
+  <div class="container">
+    <div class="logo-container">
+      <img src="logo.svg" alt="PotFlix Logo" class="logo-icon" />
+      <div class="logo-text">POT<span>FLIX</span></div>
+    </div>
+
+    <br/>
+    <div class="badge">PotFlix v2.1.2 • BDIX Connected Networks Only</div>
+
+    <h1>Stream Movies & TV Shows.<br>Any BDIX Network, Anytime.</h1>
+    <p class="subtitle">
+      Blazing-fast streaming, seamless server switching, and built-in offline downloads on Android — for BDIX connected networks only.
+    </p>
+
+    <!-- Dhakaflix Notice Banner -->
+    <div style="background: rgba(255, 152, 0, 0.1); border: 1px solid rgba(255, 152, 0, 0.35); border-radius: 12px; padding: 14px 18px; text-align: left; margin-bottom: 28px;">
+      <div style="display: flex; align-items: flex-start; gap: 12px;">
+        <span style="font-size: 20px; line-height: 1;">⚠️</span>
+        <div style="font-size: 13.5px; line-height: 1.5; color: #e0e0e0;">
+          <strong style="color: #ffb74d;">Important Notice for Dhakaflix Users:</strong><br>
+          PotFlix v2.1.2 introduces the high-speed <strong>Nagordola CDN</strong>. If your Wi-Fi network streams via <strong>Dhakaflix</strong>, please continue using <a href="https://github.com/ReduanNurLabid/PotFlix/releases/download/Android.v2.0.0/potflix.v2.1.1.apk" style="color: #ffb74d; font-weight: 700; text-decoration: underline;">PotFlix v2.1.1</a>, as Dhakaflix streaming is not yet tested on v2.1.2.
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Direct Download Button -->
+    <a id="download-main" href="https://github.com/ReduanNurLabid/PotFlix/releases/latest/download/potflix-arm64-v8a-release.apk" class="btn-main">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+        <polyline points="7 10 12 15 17 10"></polyline>
+        <line x1="12" y1="15" x2="12" y2="3"></line>
+      </svg>
+      Download for Android (APK)
+    </a>
+    <div class="sub-note">v2.1.2 • ~51 MB • For Samsung, Xiaomi, Pixel, OnePlus & Modern Phones (ARM64)</div>
+
+    <!-- Other Devices Options -->
+    <div class="other-devices">
+      <h3>📺 Other Versions</h3>
+
+      <div class="device-row">
+        <div class="device-info">
+          <h4>TV Boxes & Amazon Firestick</h4>
+          <p>For Fire TV Stick, Mi Box, and 32-bit Smart TVs (ARMv7)</p>
+        </div>
+        <a href="https://github.com/ReduanNurLabid/PotFlix/releases/latest/download/potflix-armeabi-v7a-release.apk" class="btn-small">
+          Download (47 MB)
+        </a>
+      </div>
+
+      <div class="device-row">
+        <div class="device-info">
+          <h4>Universal Version</h4>
+          <p>Works on all devices if you're not sure which to choose</p>
+        </div>
+        <a href="https://github.com/ReduanNurLabid/PotFlix/releases/latest/download/potflix-universal-release.apk" class="btn-small">
+          Download (182 MB)
+        </a>
+      </div>
+    </div>
+
+    <!-- Wi-Fi Compatibility Tester -->
+    <div class="tester-card">
+      <div class="tester-header">
+        <div class="tester-icon-badge">📶</div>
+        <div>
+          <h3>Wi-Fi Compatibility Tester</h3>
+          <p>Test if your current Wi-Fi or broadband network can stream from PotFlix servers</p>
+        </div>
+      </div>
+
+      <div class="server-status-list">
+        <div class="server-status-item">
+          <div>
+            <span class="server-name">Nagordola CDN (Global / BDIX)</span>
+            <span class="server-desc">Primary CDN streaming server</span>
+          </div>
+          <span id="badge-nagordola" class="status-badge status-pending">Not Tested</span>
+        </div>
+
+        <div class="server-status-item">
+          <div>
+            <span class="server-name">Dhakaflix (Local BDIX FTP)</span>
+            <span class="server-desc">Local 172.16.50.4 BDIX ISP network</span>
+          </div>
+          <span id="badge-dhakaflix" class="status-badge status-pending">Not Tested</span>
+        </div>
+      </div>
+
+      <div id="test-result-banner" class="test-result-banner" style="display: none;"></div>
+
+      <button id="btn-test-wifi" class="btn-test" onclick="runWifiTest()">
+        <span id="test-spinner" class="spinner" style="display:none;"></span>
+        <span id="test-btn-text">⚡ Test My Wi-Fi Connection</span>
+      </button>
+    </div>
+
+    <!-- All Released Versions Component -->
+    <div class="releases-card" id="releases-section">
+      <div class="releases-header">
+        <div class="releases-header-left">
+          <div class="tester-icon-badge" style="background: rgba(0, 150, 255, 0.12); border-color: rgba(0, 150, 255, 0.25); font-size: 20px;">
+            📦
+          </div>
+          <div>
+            <h3 style="font-size: 18px; font-weight: 700;">Release History & All Versions</h3>
+            <p style="font-size: 13px; color: var(--text-muted); margin-top: 2px;">
+              Direct APK downloads and changelogs for all releases
+            </p>
+          </div>
+        </div>
+        <button class="btn-refresh-releases" onclick="loadReleases(true)" title="Fetch newest releases from GitHub">
+          <span id="releases-spinner" class="spinner" style="display:none; width:12px; height:12px;"></span>
+          <span id="releases-refresh-text">↻ Refresh</span>
+        </button>
+      </div>
+
+      <div id="releases-list" class="releases-list">
+        <div style="text-align: center; padding: 24px; color: var(--text-muted);">
+          <div class="spinner" style="display: inline-block; margin-bottom: 8px;"></div>
+          <div>Loading released versions...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Features -->
+    <div class="features">
+      <div class="feature-card">
+        <div class="feature-icon">🚀</div>
+        <h4>75% Smaller</h4>
+        <p>Optimized architecture splits for lightning-fast downloads and minimal storage usage.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🎛️</div>
+        <h4>Player Controls</h4>
+        <p>Gesture brightness, volume swipe, double-tap seek, and instant episode selector.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">📥</div>
+        <h4>Offline Downloads</h4>
+        <p>Download movies and episodes in the background with real-time visual progress.</p>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <p>PotFlix is an open-source media client. View source code on <a href="https://github.com/ReduanNurLabid/PotFlix" target="_blank">GitHub</a>.</p>
+  </footer>
+
+  <script>
+    async function testNagordola() {
+      const start = performance.now();
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 4000);
+      try {
+        await fetch('https://cdn.nagordola.com.bd/?t=' + Date.now(), {
+          mode: 'no-cors',
+          cache: 'no-store',
+          signal: controller.signal
+        });
+        clearTimeout(timer);
+        const latency = Math.round(performance.now() - start);
+        return { success: true, latency };
+      } catch (e) {
+        clearTimeout(timer);
+        return { success: false };
+      }
+    }
+
+    function testDhakaflix() {
+      return new Promise((resolve) => {
+        const start = performance.now();
+        const img = new Image();
+        let finished = false;
+        const timer = setTimeout(() => {
+          if (!finished) {
+            finished = true;
+            img.src = '';
+            resolve({ success: false, reason: 'timeout' });
+          }
+        }, 3500);
+
+        img.onload = () => {
+          if (!finished) {
+            finished = true;
+            clearTimeout(timer);
+            resolve({ success: true, latency: Math.round(performance.now() - start) });
+          }
+        };
+
+        img.onerror = () => {
+          if (!finished) {
+            finished = true;
+            clearTimeout(timer);
+            const elapsed = performance.now() - start;
+            if (elapsed > 80 && elapsed < 3300) {
+              resolve({ success: true, latency: Math.round(elapsed) });
+            } else {
+              resolve({ success: false, reason: 'error' });
+            }
+          }
+        };
+
+        img.src = 'http://172.16.50.4/favicon.ico?' + Date.now();
+      });
+    }
+
+    async function runWifiTest() {
+      const btn = document.getElementById('btn-test-wifi');
+      const btnText = document.getElementById('test-btn-text');
+      const spinner = document.getElementById('test-spinner');
+      const badgeNagordola = document.getElementById('badge-nagordola');
+      const badgeDhakaflix = document.getElementById('badge-dhakaflix');
+      const banner = document.getElementById('test-result-banner');
+
+      btn.disabled = true;
+      spinner.style.display = 'inline-block';
+      btnText.textContent = 'Testing connection...';
+      banner.style.display = 'none';
+
+      badgeNagordola.className = 'status-badge status-testing';
+      badgeNagordola.textContent = 'Testing...';
+      badgeDhakaflix.className = 'status-badge status-testing';
+      badgeDhakaflix.textContent = 'Testing...';
+
+      const [resNagordola, resDhakaflix] = await Promise.all([
+        testNagordola(),
+        testDhakaflix()
+      ]);
+
+      spinner.style.display = 'none';
+      btn.disabled = false;
+      btnText.textContent = '🔄 Retest Connection';
+
+      // Update Nagordola badge
+      if (resNagordola.success) {
+        badgeNagordola.className = 'status-badge status-online';
+        badgeNagordola.textContent = `Online • ${resNagordola.latency}ms`;
+      } else {
+        badgeNagordola.className = 'status-badge status-offline';
+        badgeNagordola.textContent = 'Offline';
+      }
+
+      // Update Dhakaflix badge
+      if (resDhakaflix.success) {
+        badgeDhakaflix.className = 'status-badge status-online';
+        badgeDhakaflix.textContent = `Online • ${resDhakaflix.latency}ms`;
+      } else {
+        badgeDhakaflix.className = 'status-badge status-offline';
+        badgeDhakaflix.innerHTML = 'Not Detected (<a href="http://172.16.50.4/" target="_blank" style="color:#ff8080;text-decoration:underline;">Verify</a>)';
+      }
+
+      // Update verdict banner
+      banner.style.display = 'block';
+      if (resNagordola.success && resDhakaflix.success) {
+        banner.className = 'test-result-banner banner-success';
+        banner.innerHTML = '🚀 <strong>100% Compatible!</strong> Both Dhakaflix (Local BDIX) and Nagordola CDN are reachable on your Wi-Fi.';
+      } else if (resNagordola.success) {
+        banner.className = 'test-result-banner banner-success';
+        banner.innerHTML = '✅ <strong>Compatible!</strong> Your Wi-Fi can stream smoothly from <strong>Nagordola CDN</strong>. Download the app and enjoy!';
+      } else if (resDhakaflix.success) {
+        banner.className = 'test-result-banner banner-success';
+        banner.innerHTML = '⚡ <strong>Compatible!</strong> Your Wi-Fi has direct local peering with <strong>Dhakaflix</strong>.';
+      } else {
+        banner.className = 'test-result-banner banner-warning';
+        banner.innerHTML = '⚠️ <strong>Could not reach streaming servers.</strong> Ensure you are connected to a BDIX-supported broadband Wi-Fi network.';
+      }
+    }
+
+    /* Dynamic Release Pipeline Fetcher */
+    async function loadReleases(isManual = false) {
+      const listContainer = document.getElementById('releases-list');
+      const spinner = document.getElementById('releases-spinner');
+      const btnText = document.getElementById('releases-refresh-text');
+
+      if (isManual) {
+        spinner.style.display = 'inline-block';
+        btnText.textContent = 'Fetching...';
+      }
+
+      const fallbackReleases = [
+        {
+          tag_name: "Android.v2.1.2",
+          name: "PotFlix v2.1.2",
+          published_at: "2026-09-05T00:00:00Z",
+          body: "Architecture splits (~51MB ARM64, ~47MB ARMv7), Nagordola CDN streaming, vector logo branding, and player controls. (Notice: Dhakaflix users should stay on v2.1.1).",
+          assets: [
+            { name: "potflix-arm64-v8a-release.apk", size: 53971200, browser_download_url: "https://github.com/ReduanNurLabid/PotFlix/releases/latest/download/potflix-arm64-v8a-release.apk" },
+            { name: "potflix-armeabi-v7a-release.apk", size: 49926400, browser_download_url: "https://github.com/ReduanNurLabid/PotFlix/releases/latest/download/potflix-armeabi-v7a-release.apk" },
+            { name: "potflix-universal-release.apk", size: 191462400, browser_download_url: "https://github.com/ReduanNurLabid/PotFlix/releases/latest/download/potflix-universal-release.apk" }
+          ]
+        },
+        {
+          tag_name: "Android.v2.0.0",
+          name: "PotFlix Android v2.1.1",
+          published_at: "2026-08-23T13:02:20Z",
+          body: "Initial release with full media catalog, DhakaFlix FTP & Nagordola server integration, and offline downloads.",
+          assets: [
+            { name: "potflix.v2.1.1.apk", size: 195808800, browser_download_url: "https://github.com/ReduanNurLabid/PotFlix/releases/download/Android.v2.0.0/potflix.v2.1.1.apk" }
+          ]
+        },
+        {
+          tag_name: "Android.v1.0.0",
+          name: "PotFlix Android v1.0.0",
+          published_at: "2026-07-25T13:00:57Z",
+          body: "First Android preview release.",
+          assets: [
+            { name: "potflix.v1.0.0.apk", size: 19160000, browser_download_url: "https://github.com/ReduanNurLabid/PotFlix/releases/download/Android.v1.0.0/potflix.v1.0.0.apk" }
+          ]
+        },
+        {
+          tag_name: "v2.0.0",
+          name: "PotFlix Desktop (Windows)",
+          published_at: "2026-04-11T23:05:02Z",
+          body: "Windows desktop client with VLC integration.",
+          assets: [
+            { name: "PotFlix.Setup.2.0.0.exe", size: 87960000, browser_download_url: "https://github.com/ReduanNurLabid/PotFlix/releases/download/v2.0.0/PotFlix.Setup.2.0.0.exe" }
+          ]
+        }
+      ];
+
+      let releases = [];
+      try {
+        const res = await fetch('https://api.github.com/repos/ReduanNurLabid/PotFlix/releases', {
+          headers: { 'Accept': 'application/vnd.github.v3+json' }
+        });
+        if (res.ok) {
+          const apiReleases = await res.json();
+          if (Array.isArray(apiReleases) && apiReleases.length > 0) {
+            releases = apiReleases;
+          }
+        }
+      } catch (err) {
+        console.warn('Could not fetch dynamic GitHub releases, using fallback cache:', err);
+      }
+
+      if (!releases || releases.length === 0) {
+        releases = fallbackReleases;
+      }
+
+      // Render release items
+      listContainer.innerHTML = '';
+      releases.forEach((rel, idx) => {
+        const dateStr = rel.published_at ? new Date(rel.published_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '';
+        const isLatest = (idx === 0);
+        const title = rel.name || rel.tag_name;
+        const tag = rel.tag_name;
+        const bodyText = rel.body ? rel.body.trim().replace(/[#*`]/g, '').slice(0, 160) + (rel.body.length > 160 ? '...' : '') : 'Release update.';
+
+        let assetsHtml = '';
+        if (rel.assets && rel.assets.length > 0) {
+          assetsHtml = rel.assets.map(asset => {
+            const sizeMb = asset.size ? (asset.size / (1024 * 1024)).toFixed(1) + ' MB' : '';
+            const isApk = asset.name.endsWith('.apk');
+            const icon = isApk ? '📱' : '💻';
+            return `
+              <a href="${asset.browser_download_url}" class="asset-btn" download>
+                <span>${icon}</span>
+                <span>${asset.name}</span>
+                <span class="asset-size">(${sizeMb})</span>
+              </a>
+            `;
+          }).join('');
+        } else {
+          assetsHtml = `<a href="https://github.com/ReduanNurLabid/PotFlix/releases/tag/${tag}" class="asset-btn" target="_blank">View on GitHub</a>`;
+        }
+
+        const item = document.createElement('div');
+        item.className = 'release-item';
+        item.innerHTML = `
+          <div class="release-top">
+            <div class="release-tag-group">
+              <span class="release-version">${title}</span>
+              ${isLatest ? '<span class="badge-latest">Latest</span>' : ''}
+              <span style="font-size: 11px; color: var(--text-muted); background: rgba(255,255,255,0.06); padding: 2px 6px; border-radius: 4px;">${tag}</span>
+            </div>
+            <span class="release-date">${dateStr}</span>
+          </div>
+          <div class="release-notes">${bodyText}</div>
+          <div class="release-assets">${assetsHtml}</div>
+        `;
+        listContainer.appendChild(item);
+      });
+
+      if (isManual) {
+        spinner.style.display = 'none';
+        btnText.textContent = '✓ Updated';
+        setTimeout(() => { btnText.textContent = '↻ Refresh'; }, 2000);
+      }
+    }
+
+    // Automatically load releases when document loads
+    window.addEventListener('DOMContentLoaded', () => {
+      loadReleases();
+    });
+  </script>
+</body>
+</html>

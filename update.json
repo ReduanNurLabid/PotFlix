@@ -1,6 +1,9 @@
 {
-  "versionCode": 2,
-  "versionName": "1.0.1",
-  "apkUrl": "https://github.com/ReduanNurLabid/PotFlix/releases/latest/download/app-release.apk",
-  "releaseNotes": "Initial release"
+  "versionCode": 212,
+  "versionName": "2.1.2",
+  "apkUrl": "https://github.com/ReduanNurLabid/PotFlix/releases/latest/download/potflix-arm64-v8a-release.apk",
+  "apkUrlArm64": "https://github.com/ReduanNurLabid/PotFlix/releases/latest/download/potflix-arm64-v8a-release.apk",
+  "apkUrlArmV7": "https://github.com/ReduanNurLabid/PotFlix/releases/latest/download/potflix-armeabi-v7a-release.apk",
+  "apkUrlUniversal": "https://github.com/ReduanNurLabid/PotFlix/releases/latest/download/potflix-universal-release.apk",
+  "releaseNotes": "PotFlix v2.1.2 introduces Nagordola CDN with 70%+ smaller split APKs.\n\n⚠️ Notice for Dhakaflix Users: If your Wi-Fi relies on Dhakaflix, please continue using v2.1.1 as Dhakaflix streaming is not yet tested on v2.1.2."
 }

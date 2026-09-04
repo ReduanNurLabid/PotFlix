@@ -132,7 +132,11 @@ fun HomeScreen(
                             category = Category("history", "Continue Watching", "", "", "🕒"),
                             movies = watchHistory,
                             onMovieClick = { movie ->
-                                navController.navigate(Screen.Detail.createRoute(movie))
+                                if (movie.lastPlayedStreamUrl != null && !movie.isWatched) {
+                                    navController.navigate(Screen.Player.createRoute(movie.url, movie.lastPlayedStreamUrl, movie.title, movie.playbackPosition ?: 0L))
+                                } else {
+                                    navController.navigate(Screen.Detail.createRoute(movie))
+                                }
                             },
                             onSeeAllClick = { } // Hide or do nothing for history see all for now
                         )
@@ -207,7 +211,7 @@ fun HomeScreen(
                 // Brand Logo + Title
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Image(
-                        painter = painterResource(id = R.drawable.ic_potflix_logo),
+                        painter = painterResource(id = R.drawable.ic_potflix_logo_vector),
                         contentDescription = "PotFlix Logo",
                         modifier = Modifier.height(40.dp)
                     )

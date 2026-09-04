@@ -23,14 +23,19 @@ import androidx.compose.ui.graphics.Color
 
 @Composable
 fun PotFlixNavGraph(
-    navController: NavHostController
+    navController: NavHostController,
+    startDestination: String = Screen.Home.route
 ) {
     val context = LocalContext.current
 
     NavHost(
         navController = navController,
-        startDestination = Screen.Home.route
+        startDestination = startDestination
     ) {
+        composable(route = Screen.Onboarding.route) {
+            com.potflix.presentation.onboarding.OnboardingScreen(navController = navController)
+        }
+        
         composable(route = Screen.Home.route) {
             HomeScreen(navController = navController)
         }
@@ -59,6 +64,10 @@ fun PotFlixNavGraph(
             com.potflix.presentation.watchlist.WatchlistScreen(navController = navController)
         }
         
+        composable(route = Screen.Login.route) {
+            com.potflix.presentation.login.LoginScreen(navController = navController)
+        }
+        
         composable(
             route = Screen.CategoryDetail.route,
             arguments = listOf(
@@ -80,18 +89,24 @@ fun PotFlixNavGraph(
         composable(
             route = Screen.Player.route,
             arguments = listOf(
+                navArgument("movieUrl") { type = NavType.StringType },
                 navArgument("streamUrl") { type = NavType.StringType },
-                navArgument("title") { type = NavType.StringType }
+                navArgument("title") { type = NavType.StringType },
+                navArgument("playbackPosition") { type = NavType.LongType; defaultValue = 0L }
             )
         ) { backStackEntry ->
+            val movieUrl = backStackEntry.arguments?.getString("movieUrl") ?: ""
             val streamUrl = backStackEntry.arguments?.getString("streamUrl") ?: ""
             val title = backStackEntry.arguments?.getString("title") ?: ""
+            val playbackPosition = backStackEntry.arguments?.getLong("playbackPosition") ?: 0L
             
             // Launch PlayerActivity instead of a Composable if we want landscape/PiP easily
             LaunchedEffect(Unit) {
                 val intent = Intent(context, PlayerActivity::class.java).apply {
+                    putExtra("movieUrl", movieUrl)
                     putExtra("streamUrl", streamUrl)
                     putExtra("title", title)
+                    putExtra("playbackPosition", playbackPosition)
                 }
                 context.startActivity(intent)
                 navController.popBackStack() // Go back after launching activity

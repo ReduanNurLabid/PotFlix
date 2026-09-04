@@ -20,5 +20,6 @@ interface MovieRepository {
     
     // History functions
     suspend fun addToWatchHistory(movie: Movie)
+    suspend fun updateWatchProgress(movieUrl: String, streamUrl: String, position: Long, duration: Long)
     fun getWatchHistoryFlow(): Flow<List<Movie>>
 }

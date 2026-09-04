@@ -121,6 +121,11 @@ class DownloadService : Service() {
                 val response = client.newCall(requestBuilder.build()).execute()
                 if (!response.isSuccessful) throw Exception("Failed to connect")
                 
+                val contentType = response.header("Content-Type")
+                if (contentType?.contains("text/html") == true) {
+                    throw Exception("HTML page detected (possible captive portal or unreachable server)")
+                }
+                
                 val body = response.body ?: throw Exception("Empty body")
                 val contentLength = body.contentLength()
                 val totalBytes = downloadedBytes + contentLength
@@ -198,6 +203,9 @@ class DownloadService : Service() {
                         localDownloadDao.update(entity.copy(status = STATUS_FAILED))
                     }
                     updateNotification("Failed to download $title", 0, 0)
+                    android.os.Handler(android.os.Looper.getMainLooper()).post {
+                        android.widget.Toast.makeText(applicationContext, "Failed to download $title. Check connection.", android.widget.Toast.LENGTH_LONG).show()
+                    }
                 }
             } finally {
                 activeDownloads.remove(id)

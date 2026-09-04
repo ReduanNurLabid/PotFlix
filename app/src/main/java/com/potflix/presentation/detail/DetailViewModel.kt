@@ -3,7 +3,7 @@ package com.potflix.presentation.detail
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.potflix.data.local.dao.LocalMovieDao
+import com.potflix.data.repository.WatchlistRepository
 import com.potflix.data.local.entity.toLocalMovieEntity
 import com.potflix.domain.model.Movie
 import com.potflix.domain.model.Season
@@ -26,7 +26,7 @@ import kotlinx.coroutines.delay
 @HiltViewModel
 class DetailViewModel @Inject constructor(
     private val repository: MovieRepository,
-    private val localMovieDao: com.potflix.data.local.dao.LocalMovieDao,
+    private val watchlistRepository: WatchlistRepository,
     private val localDownloadDao: com.potflix.data.local.dao.LocalDownloadDao,
     private val downloadHelper: DownloadHelper,
     savedStateHandle: SavedStateHandle,
@@ -78,7 +78,7 @@ class DetailViewModel @Inject constructor(
         _lastPlayedEpisodeUrl.value = episodeUrl
     }
 
-    val isInWatchlist = localMovieDao.isInWatchlist(initialMovie.url).stateIn(
+    val isInWatchlist = watchlistRepository.isInWatchlist(initialMovie.url).stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = false
@@ -163,10 +163,10 @@ class DetailViewModel @Inject constructor(
     fun toggleWatchlist() {
         viewModelScope.launch {
             if (isInWatchlist.value) {
-                localMovieDao.removeByUrl(initialMovie.url)
+                watchlistRepository.removeByUrl(initialMovie.url)
             } else {
-                _movie.value?.toLocalMovieEntity()?.copy(url = initialMovie.url)?.let { 
-                    localMovieDao.addToWatchlist(it)
+                movie.value?.toLocalMovieEntity()?.copy(url = initialMovie.url)?.let {
+                    watchlistRepository.addToWatchlist(it)
                 }
             }
         }
@@ -174,5 +174,8 @@ class DetailViewModel @Inject constructor(
 
     fun startDownload(title: String, streamUrl: String, poster: String?) {
         downloadHelper.startDownload(title, streamUrl, poster)
+        android.os.Handler(android.os.Looper.getMainLooper()).post {
+            android.widget.Toast.makeText(context, "Download started: $title", android.widget.Toast.LENGTH_SHORT).show()
+        }
     }
 }

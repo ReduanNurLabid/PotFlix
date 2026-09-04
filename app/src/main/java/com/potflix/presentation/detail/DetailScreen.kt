@@ -19,6 +19,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.foundation.border
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -44,8 +48,10 @@ fun DetailScreen(
     val selectedSeason = seasons.getOrNull(selectedSeasonIndex)
     
     val context = androidx.compose.ui.platform.LocalContext.current
-    val playVideo = { url: String, title: String ->
-        navController.navigate(Screen.Player.createRoute(url, title))
+    val playVideo = { streamUrl: String, title: String ->
+        val pos = movie?.playbackPosition ?: 0L
+        val movieUrl = movie?.url ?: streamUrl
+        navController.navigate(Screen.Player.createRoute(movieUrl, streamUrl, title, pos))
     }
 
     Scaffold(
@@ -151,11 +157,14 @@ fun DetailScreen(
                             }
                         }
                         
+                        var myListFocused by remember { mutableStateOf(false) }
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier
                                 .clip(androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
                                 .background(if (inWatchlist) MaterialTheme.colorScheme.primary.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.15f))
+                                .onFocusChanged { myListFocused = it.isFocused }
+                                .then(if (myListFocused) Modifier.border(2.dp, Color.White, androidx.compose.foundation.shape.RoundedCornerShape(16.dp)) else Modifier)
                                 .clickable { viewModel.toggleWatchlist() }
                                 .padding(horizontal = 12.dp, vertical = 6.dp)
                         ) {
@@ -241,6 +250,7 @@ fun DetailScreen(
                         }
 
                         if (isVideoUrl) {
+                            var playBtnFocused by remember { mutableStateOf(false) }
                             Button(
                                 onClick = {
                                     movie?.let {
@@ -248,7 +258,14 @@ fun DetailScreen(
                                         playVideo(it.url, it.title)
                                     }
                                 },
-                                modifier = Modifier.fillMaxWidth().height(48.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(48.dp)
+                                    .onFocusChanged { playBtnFocused = it.isFocused }
+                                    .then(
+                                        if (playBtnFocused) Modifier.padding(0.dp) else Modifier
+                                    ),
+                                border = if (playBtnFocused) androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = Color.White,
                                     contentColor = Color.Black
@@ -264,6 +281,7 @@ fun DetailScreen(
                             
                             val download = downloads.find { it.streamUrl == movie?.url }
                             
+                            var downloadBtnFocused by remember { mutableStateOf(false) }
                             Button(
                                 onClick = {
                                     if (download == null || download.status == com.potflix.service.DownloadService.STATUS_FAILED) {
@@ -271,18 +289,46 @@ fun DetailScreen(
                                             viewModel.startDownload(it.title, it.url, it.poster)
                                         }
                                     } else if (download.status == com.potflix.service.DownloadService.STATUS_SUCCESSFUL) {
-                                        if (download.localUri != null) {
-                                            navController.navigate(Screen.Player.createRoute(download.localUri, download.title))
+                                        val streamUrl = download.localUri
+                                        if (streamUrl != null) {
+                                            val movieUrl = movie?.url ?: streamUrl
+                                            navController.navigate(Screen.Player.createRoute(movieUrl, streamUrl, download.title ?: "Video"))
                                         }
                                     } else {
                                         navController.navigate(Screen.Watchlist.route)
                                     }
                                 },
-                                modifier = Modifier.fillMaxWidth().height(48.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(48.dp)
+                                    .onFocusChanged { downloadBtnFocused = it.isFocused }
+                                    .then(if (downloadBtnFocused) Modifier.padding(0.dp) else Modifier)
+                                    .background(
+                                        if (download != null && download.status != com.potflix.service.DownloadService.STATUS_FAILED && download.status != com.potflix.service.DownloadService.STATUS_SUCCESSFUL)
+                                            Color.White.copy(alpha = 0.15f)
+                                        else
+                                            Color.Transparent,
+                                        shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
+                                    )
+                                    .clip(androidx.compose.foundation.shape.RoundedCornerShape(8.dp))
+                                    .drawWithContent {
+                                        if (download != null && download.status != com.potflix.service.DownloadService.STATUS_FAILED && download.status != com.potflix.service.DownloadService.STATUS_SUCCESSFUL) {
+                                            val fraction = download.progress / 100f
+                                            drawRect(
+                                                color = Color(0xFFE50914).copy(alpha = 0.6f),
+                                                size = Size(width = size.width * fraction, height = size.height)
+                                            )
+                                        }
+                                        drawContent()
+                                    },
+                                border = if (downloadBtnFocused) androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
                                 shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = if (download?.status == com.potflix.service.DownloadService.STATUS_SUCCESSFUL) 
-                                        Color(0xFF4CAF50) else Color.White.copy(alpha = 0.15f),
+                                        Color(0xFF4CAF50) 
+                                    else if (download != null && download.status != com.potflix.service.DownloadService.STATUS_FAILED)
+                                        Color.Transparent
+                                    else Color.White.copy(alpha = 0.15f),
                                     contentColor = Color.White
                                 )
                             ) {
@@ -337,10 +383,13 @@ fun DetailScreen(
                             items(seasons.size) { index ->
                                 val season = seasons[index]
                                 val isSelected = index == selectedSeasonIndex
+                                var seasonFocused by remember { mutableStateOf(false) }
                                 Box(
                                     modifier = Modifier
                                         .clip(androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
                                         .background(if (isSelected) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.15f))
+                                        .onFocusChanged { seasonFocused = it.isFocused }
+                                        .then(if (seasonFocused) Modifier.border(2.dp, Color.White, androidx.compose.foundation.shape.RoundedCornerShape(16.dp)) else Modifier)
                                         .clickable { viewModel.setSeasonIndex(index) }
                                         .padding(horizontal = 16.dp, vertical = 8.dp)
                                 ) {
@@ -358,7 +407,23 @@ fun DetailScreen(
                 
                 if (selectedSeason != null) {
                     items(selectedSeason.episodes) { episode ->
+                        var episodeFocused by remember { mutableStateOf(false) }
                         ListItem(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .onFocusChanged { episodeFocused = it.isFocused }
+                                .then(if (episodeFocused) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, androidx.compose.foundation.shape.RoundedCornerShape(8.dp)).background(Color.White.copy(alpha=0.05f)) else Modifier)
+                                .clickable {
+                                    val epDownload = downloads.find { it.streamUrl == episode.url }
+                                    viewModel.onPlayStarted()
+                                    viewModel.saveLastPlayedEpisode(episode.url)
+                                    
+                                    if (epDownload?.status == com.potflix.service.DownloadService.STATUS_SUCCESSFUL && epDownload.localUri != null) {
+                                        playVideo(epDownload.localUri, epDownload.title)
+                                    } else {
+                                        playVideo(episode.url, episode.title)
+                                    }
+                                },
                             headlineContent = { 
                                 val titleText = if ((episode.number ?: 0) > 0) "${episode.number}. ${episode.title}" else episode.title
                                 Text(
@@ -446,17 +511,6 @@ fun DetailScreen(
                                     } else {
                                         Icon(painter = androidx.compose.ui.res.painterResource(id = com.potflix.R.drawable.ic_nav_downloads), contentDescription = "Download")
                                     }
-                                }
-                            },
-                            modifier = Modifier.clickable {
-                                val epDownload = downloads.find { it.streamUrl == episode.url }
-                                viewModel.onPlayStarted()
-                                viewModel.saveLastPlayedEpisode(episode.url)
-                                
-                                if (epDownload?.status == com.potflix.service.DownloadService.STATUS_SUCCESSFUL && epDownload.localUri != null) {
-                                    playVideo(epDownload.localUri, epDownload.title)
-                                } else {
-                                    playVideo(episode.url, episode.title)
                                 }
                             }
                         )

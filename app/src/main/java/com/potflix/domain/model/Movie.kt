@@ -19,7 +19,11 @@ data class Movie(
     val runtime: Int? = null,
     val categoryId: String? = null,
     val tmdbId: Int? = null,
-    val videos: List<VideoSource>? = null
+    val videos: List<VideoSource>? = null,
+    val playbackPosition: Long? = null,
+    val duration: Long? = null,
+    val lastPlayedStreamUrl: String? = null,
+    val isWatched: Boolean = false
 )
 
 data class VideoSource(

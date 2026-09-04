@@ -22,7 +22,6 @@ object DatabaseModule {
             PotFlixDatabase::class.java,
             PotFlixDatabase.DATABASE_NAME
         )
-            .createFromAsset("databases/movies.db")
             .fallbackToDestructiveMigration()
             .build()
     }

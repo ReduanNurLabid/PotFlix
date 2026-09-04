@@ -1,6 +1,7 @@
 package com.potflix.presentation.navigation
 
 sealed class Screen(val route: String) {
+    object Onboarding : Screen("onboarding")
     object Home : Screen("home")
     object Movies : Screen("movies")
     object TvSeries : Screen("tv_series")
@@ -8,6 +9,7 @@ sealed class Screen(val route: String) {
     object Settings : Screen("settings")
     object Downloads : Screen("downloads")
     object Watchlist : Screen("watchlist")
+    object Login : Screen("login")
     object CategoryDetail : Screen("category/{categoryId}/{categoryName}?type={type}") {
         fun createRoute(categoryId: String, categoryName: String, type: String = "category"): String {
             val encodedId = android.net.Uri.encode(categoryId)
@@ -22,11 +24,12 @@ sealed class Screen(val route: String) {
             return "detail/$encoded"
         }
     }
-    object Player : Screen("player/{streamUrl}/{title}") {
-        fun createRoute(streamUrl: String, title: String): String {
-            val encodedUrl = android.net.Uri.encode(streamUrl)
+    object Player : Screen("player/{movieUrl}/{streamUrl}/{title}/{playbackPosition}") {
+        fun createRoute(movieUrl: String, streamUrl: String, title: String, playbackPosition: Long = 0L): String {
+            val encodedMovie = android.net.Uri.encode(movieUrl)
+            val encodedStream = android.net.Uri.encode(streamUrl)
             val encodedTitle = android.net.Uri.encode(title)
-            return "player/$encodedUrl/$encodedTitle"
+            return "player/$encodedMovie/$encodedStream/$encodedTitle/$playbackPosition"
         }
     }
 }

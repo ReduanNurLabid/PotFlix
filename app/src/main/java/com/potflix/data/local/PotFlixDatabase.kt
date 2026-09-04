@@ -20,7 +20,7 @@ import com.potflix.data.local.dao.MovieDao
         com.potflix.data.local.entity.VideoEntity::class,
         com.potflix.data.local.entity.MovieGenreCrossRef::class
     ],
-    version = 10,
+    version = 12,
     exportSchema = false
 )
 abstract class PotFlixDatabase : RoomDatabase() {

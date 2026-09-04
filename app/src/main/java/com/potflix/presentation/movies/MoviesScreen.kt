@@ -36,9 +36,9 @@ fun MoviesScreen(
     navController: NavController,
     viewModel: MoviesViewModel = hiltViewModel()
 ) {
-    val genres by viewModel.genres.collectAsState()
+    val categories by viewModel.categories.collectAsState()
     val trendingMovies by viewModel.trendingMovies.collectAsState()
-    val genreMovies by viewModel.genreMovies.collectAsState()
+    val categoryMovies by viewModel.categoryMovies.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val isHeroInWatchlist by viewModel.isHeroInWatchlist.collectAsState()
 
@@ -47,7 +47,7 @@ fun MoviesScreen(
             .fillMaxSize()
             .background(Color(0xFF0A0A0A))
     ) {
-        if (isLoading && genres.isEmpty()) {
+        if (isLoading && categories.isEmpty()) {
             Box(modifier = Modifier.padding(top = 90.dp)) {
                 ScreenSkeleton()
             }
@@ -89,28 +89,22 @@ fun MoviesScreen(
                     }
                 }
 
-                // Genre Rows
+                // Category Rows
                 items(
-                    items = genres,
+                    items = categories,
                     key = { it.id },
-                    contentType = { "genreRow" }
-                ) { genre ->
-                    val movies = genreMovies[genre.id.toString()] ?: emptyList()
+                    contentType = { "categoryRow" }
+                ) { category ->
+                    val movies = categoryMovies[category.id] ?: emptyList()
                     if (movies.isNotEmpty()) {
                         CategoryRow(
-                            category = com.potflix.domain.model.Category(
-                                id = genre.id.toString(), 
-                                name = genre.name, 
-                                type = "genre", 
-                                url = "", 
-                                icon = ""
-                            ),
+                            category = category,
                             movies = movies,
                             onMovieClick = { movie ->
                                 navController.navigate(Screen.Detail.createRoute(movie))
                             },
                             onSeeAllClick = {
-                                navController.navigate(Screen.CategoryDetail.createRoute(genre.id.toString(), genre.name, "genre_movie"))
+                                navController.navigate(Screen.CategoryDetail.createRoute(category.id, category.name, "category_movie"))
                             }
                         )
                     }
@@ -152,15 +146,15 @@ fun MoviesScreen(
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Image(
-                        painter = painterResource(id = R.drawable.ic_potflix_logo),
+                        painter = painterResource(id = R.drawable.ic_potflix_logo_vector),
                         contentDescription = "PotFlix",
                         modifier = Modifier.height(40.dp)
                     )
                     Text(
                         text = "Movies",
                         style = MaterialTheme.typography.titleLarge.copy(
-                            fontWeight = FontWeight.ExtraBold,
-                            fontSize = 26.sp
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 22.sp
                         ),
                         color = Color.White
                     )

@@ -9,6 +9,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Done
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -35,8 +36,8 @@ fun SettingsScreen(
     val context = LocalContext.current
     var showClearCacheDialog by remember { mutableStateOf(false) }
 
-    var versionClickCount by remember { mutableIntStateOf(0) }
-    var isDeveloperMode by remember { mutableStateOf(false) }
+    val activeServer by viewModel.activeServer.collectAsState()
+    var showServerDialog by remember { mutableStateOf(false) }
     
     LaunchedEffect(toastMessage) {
         toastMessage?.let {
@@ -64,6 +65,52 @@ fun SettingsScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             item {
+                SettingsSectionTitle("Account")
+            }
+            
+            item {
+                val email by viewModel.currentUserEmail.collectAsState(initial = null)
+                
+                if (email != null) {
+                    SettingsClickableItem(
+                        icon = androidx.compose.material.icons.Icons.Default.Info,
+                        title = "Logged in as",
+                        subtitle = email!!,
+                        onClick = {}
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    SettingsClickableItem(
+                        icon = androidx.compose.material.icons.Icons.Default.Delete,
+                        title = "Log Out",
+                        subtitle = "Sign out of your account",
+                        onClick = { viewModel.logout() }
+                    )
+                } else {
+                    SettingsClickableItem(
+                        icon = androidx.compose.material.icons.Icons.Default.Info,
+                        title = "Login / Create Account",
+                        subtitle = "Sync your watchlist across devices",
+                        onClick = { navController.navigate(com.potflix.presentation.navigation.Screen.Login.route) }
+                    )
+                }
+            }
+            
+            item {
+                Spacer(modifier = Modifier.height(16.dp))
+                SettingsSectionTitle("Server Configuration")
+            }
+            
+            item {
+                SettingsClickableItem(
+                    icon = Icons.Default.Settings,
+                    title = "Content Server",
+                    subtitle = activeServer.name,
+                    onClick = { showServerDialog = true }
+                )
+            }
+            
+            item {
+                Spacer(modifier = Modifier.height(16.dp))
                 SettingsSectionTitle("Storage")
             }
             
@@ -129,26 +176,88 @@ fun SettingsScreen(
                     icon = Icons.Default.Info,
                     title = "Version",
                     subtitle = "PotFlix v${com.potflix.BuildConfig.VERSION_NAME}",
-                    onClick = {
-                        if (!isDeveloperMode) {
-                            versionClickCount++
-                            if (versionClickCount >= 3) {
-                                isDeveloperMode = true
-                                Toast.makeText(context, "Developer mode enabled!", Toast.LENGTH_SHORT).show()
-                            } else {
-                                val remaining = 3 - versionClickCount
-                                Toast.makeText(context, "Tap $remaining more times to unlock Developer options", Toast.LENGTH_SHORT).show()
-                            }
-                        } else {
-                            Toast.makeText(context, "You are already a developer", Toast.LENGTH_SHORT).show()
-                        }
-                    }
+                    onClick = {}
                 )
             }
         }
     }
 
     val updateAvailable by viewModel.updateAvailable.collectAsState()
+    
+    if (showServerDialog) {
+        AlertDialog(
+            onDismissRequest = { showServerDialog = false },
+            title = { Text("Select Content Server") },
+            text = {
+                Column {
+                    com.potflix.data.local.preferences.ServerConfig.BUILT_IN_SERVERS.forEach { server ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    viewModel.setActiveServer(server)
+                                    showServerDialog = false
+                                }
+                                .padding(vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = activeServer.id == server.id,
+                                onClick = {
+                                    viewModel.setActiveServer(server)
+                                    showServerDialog = false
+                                },
+                                colors = RadioButtonDefaults.colors(selectedColor = MaterialTheme.colorScheme.primary)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text(server.name, fontWeight = FontWeight.Bold, color = Color.White)
+                                Text(server.baseUrl, style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.6f))
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showServerDialog = false }) {
+                    Text("Cancel", color = Color.White)
+                }
+            },
+            containerColor = Color(0xFF1E1E28)
+        )
+    }
+
+    val showRestartDialog by viewModel.showRestartDialog.collectAsState()
+    if (showRestartDialog) {
+        AlertDialog(
+            onDismissRequest = { viewModel.dismissRestartDialog() },
+            title = { Text("Restart Required") },
+            text = { Text("You have switched the content server to ${activeServer.name}. Please restart the app for the changes to take full effect and avoid any database conflicts.") },
+            confirmButton = {
+                val activity = LocalContext.current as? android.app.Activity
+                Button(
+                    onClick = {
+                        val intent = context.packageManager.getLaunchIntentForPackage(context.packageName)
+                        intent?.addFlags(android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP or android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                        if (intent != null) {
+                            context.startActivity(intent)
+                        }
+                        activity?.finish()
+                        Runtime.getRuntime().exit(0)
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                ) {
+                    Text("Restart Now", color = Color.White)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { viewModel.dismissRestartDialog() }) {
+                    Text("Later", color = Color.White)
+                }
+            },
+            containerColor = Color(0xFF1E1E28)
+        )
+    }
     
     if (showClearCacheDialog) {
         AlertDialog(
@@ -170,12 +279,11 @@ fun SettingsScreen(
                     Text("Cancel", color = Color.White)
                 }
             },
-            containerColor = MaterialTheme.colorScheme.surface
+            containerColor = Color(0xFF1E1E28)
         )
     }
     
     updateAvailable?.let { update ->
-        val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
         AlertDialog(
             onDismissRequest = { viewModel.dismissUpdateDialog() },
             title = { Text("Update Available: v${update.versionName}") },
@@ -191,7 +299,8 @@ fun SettingsScreen(
                 Button(
                     onClick = {
                         try {
-                            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(update.apkUrl))
+                            val downloadUrl = update.getDownloadUrlForDevice()
+                            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(downloadUrl))
                             intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
                             context.startActivity(intent)
                         } catch (e: Exception) {
@@ -209,7 +318,7 @@ fun SettingsScreen(
                     Text("Later", color = Color.White)
                 }
             },
-            containerColor = MaterialTheme.colorScheme.surface
+            containerColor = Color(0xFF1E1E28)
         )
     }
 }
@@ -236,7 +345,7 @@ fun SettingsSwitchItem(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color.White.copy(alpha = 0.05f), shape = MaterialTheme.shapes.medium)
+            .background(Color(0xFF161622), shape = MaterialTheme.shapes.medium)
             .clickable { onCheckedChange(!checked) }
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -278,7 +387,7 @@ fun SettingsClickableItem(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color.White.copy(alpha = 0.05f), shape = MaterialTheme.shapes.medium)
+            .background(Color(0xFF161622), shape = MaterialTheme.shapes.medium)
             .clickable(onClick = onClick, enabled = !isLoading)
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically
