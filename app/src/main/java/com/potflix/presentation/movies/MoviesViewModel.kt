@@ -47,86 +47,72 @@ class MoviesViewModel @Inject constructor(
         }
     }
 
+    private var loadDataJob: kotlinx.coroutines.Job? = null
+
     init {
         loadData()
     }
 
+    fun refresh() {
+        loadData()
+    }
+
     private fun loadData() {
-        viewModelScope.launch {
+        loadDataJob?.cancel()
+        loadDataJob = viewModelScope.launch {
             _isLoading.value = true
-            
-            launch {
-                repository.getTrendingSuggestionsFlow("movie").collect { movies ->
-                    val top10 = movies.take(10)
+            try {
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    val trendingRes = repository.getTrendingSuggestions("movie")
+                    val top10 = trendingRes.getOrDefault(emptyList()).take(10)
                     _trendingMovies.value = top10
 
                     val hero = top10.firstOrNull()
                     if (hero != null) {
-                        launch {
+                        launch(kotlinx.coroutines.Dispatchers.Main) {
                             watchlistRepository.isInWatchlist(hero.url).collectLatest { inWatchlist ->
                                 _isHeroInWatchlist.value = inWatchlist
                             }
                         }
-                    }
-                    
-                    top10.forEach { movie ->
-                        launch {
-                            repository.getMovieDetails(movie).onSuccess { detailedMovie ->
-                                if (detailedMovie.poster != null) {
-                                    val currentList = _trendingMovies.value.toMutableList()
-                                    val index = currentList.indexOfFirst { it.url == movie.url }
-                                    if (index != -1) {
-                                        currentList[index] = detailedMovie
-                                        _trendingMovies.value = currentList
-                                    }
+                        if (hero.backdrop == null || hero.poster == null) {
+                            repository.getMovieDetails(hero).onSuccess { detailedHero ->
+                                val currentList = _trendingMovies.value.toMutableList()
+                                if (currentList.isNotEmpty()) {
+                                    currentList[0] = detailedHero
+                                    _trendingMovies.value = currentList
                                 }
                             }
                         }
                     }
-                }
-            }
-            repository.getCategories().onSuccess { dbCategories ->
-                val dynamicCategories = mutableListOf<Category>()
-                val dynamicCategoryMovies = mutableMapOf<String, List<Movie>>()
-                
-                // Filter out TV show categories
-                val movieCategories = dbCategories.filter { 
-                    !it.id.contains("tvshows") && !it.id.contains("Series", ignoreCase = true) 
-                }
-                val selectedCategories = movieCategories.shuffled().take(7)
-                
-                selectedCategories.forEach { category ->
-                    repository.getLatestMovies(category.id).onSuccess { moviesInCat ->
-                        if (moviesInCat.isNotEmpty()) {
-                            val items = moviesInCat.take(15)
-                            dynamicCategories.add(category)
-                            dynamicCategoryMovies[category.id] = items
-                            
-                            // Lazy fetch TMDB details for the row items
-                            items.forEach { movie ->
-                                launch {
-                                    repository.getMovieDetails(movie).onSuccess { detailedMovie ->
-                                        if (detailedMovie.poster != null) {
-                                            val currentMap = _categoryMovies.value.toMutableMap()
-                                            val currentList = currentMap[category.id]?.toMutableList() ?: return@launch
-                                            val index = currentList.indexOfFirst { it.url == movie.url }
-                                            if (index != -1) {
-                                                currentList[index] = detailedMovie
-                                                currentMap[category.id] = currentList
-                                                _categoryMovies.value = currentMap
-                                            }
-                                        }
-                                    }
+
+                    repository.getCategories().onSuccess { dbCategories ->
+                        val dynamicCategories = mutableListOf<Category>()
+                        val dynamicCategoryMovies = mutableMapOf<String, List<Movie>>()
+                        
+                        val movieCategories = dbCategories.filter { 
+                            !it.id.contains("tvshows") && !it.id.contains("Series", ignoreCase = true) 
+                        }
+                        val selectedCategories = movieCategories.shuffled().take(7)
+                        
+                        selectedCategories.forEach { category ->
+                            repository.getLatestMovies(category.id).onSuccess { moviesInCat ->
+                                if (moviesInCat.isNotEmpty()) {
+                                    dynamicCategories.add(category)
+                                    dynamicCategoryMovies[category.id] = moviesInCat.take(15)
                                 }
                             }
                         }
+                        _categories.value = dynamicCategories
+                        _categoryMovies.value = dynamicCategoryMovies
                     }
                 }
-                _categories.value = dynamicCategories
-                _categoryMovies.value = dynamicCategoryMovies
+            } catch (e: Exception) {
+                if (e !is kotlinx.coroutines.CancellationException) {
+                    android.util.Log.e("MoviesViewModel", "Error loading movies data", e)
+                }
+            } finally {
+                _isLoading.value = false
             }
-            
-            _isLoading.value = false
         }
     }
 }

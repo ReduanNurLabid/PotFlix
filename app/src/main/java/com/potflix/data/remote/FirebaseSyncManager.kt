@@ -109,4 +109,36 @@ class FirebaseSyncManager @Inject constructor() {
             .set(data)
             .addOnFailureListener { e -> Log.e("FirebaseSyncManager", "Failed to sync watchlist", e) }
     }
+
+    fun suggestTmdbCorrection(
+        originalTitle: String,
+        url: String,
+        correctedTmdbId: Long,
+        correctedTitle: String,
+        type: String
+    ) {
+        val uid = getUserId() ?: "anonymous"
+        val docId = try {
+            java.security.MessageDigest.getInstance("MD5")
+                .digest(url.toByteArray())
+                .joinToString("") { "%02x".format(it) }
+        } catch (e: Exception) {
+            url.hashCode().toString()
+        }
+
+        val data = mapOf(
+            "url" to url,
+            "originalTitle" to originalTitle,
+            "suggestedTmdbId" to correctedTmdbId,
+            "suggestedTitle" to correctedTitle,
+            "type" to type,
+            "submittedBy" to uid,
+            "timestamp" to com.google.firebase.Timestamp.now()
+        )
+
+        firestore.collection("community_corrections").document(docId)
+            .set(data, SetOptions.merge())
+            .addOnSuccessListener { Log.d("FirebaseSyncManager", "Community TMDB correction submitted successfully") }
+            .addOnFailureListener { e -> Log.e("FirebaseSyncManager", "Failed to submit TMDB correction", e) }
+    }
 }

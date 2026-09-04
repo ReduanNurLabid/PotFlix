@@ -139,4 +139,41 @@ interface MovieDao {
         LIMIT :limit
     """)
     suspend fun getTvSeriesByGenreId(genreId: Long, limit: Int): List<MovieWithDetails>
+
+    @Query("""
+        UPDATE movies SET 
+            tmdb_id = :tmdbId, 
+            title = CASE WHEN :newTitle IS NOT NULL AND :newTitle != '' THEN :newTitle ELSE title END,
+            overview = COALESCE(:overview, overview), 
+            poster_url = COALESCE(:posterUrl, poster_url), 
+            rating = COALESCE(:rating, rating) 
+        WHERE id = (
+            SELECT m.id FROM movies m 
+            LEFT JOIN videos v ON m.id = v.movie_id 
+            WHERE v.url = :videoUrl OR m.title = :originalTitle 
+            LIMIT 1
+        )
+    """)
+    suspend fun updateMovieTmdbInfo(
+        videoUrl: String,
+        originalTitle: String,
+        newTitle: String?,
+        tmdbId: Long,
+        overview: String?,
+        posterUrl: String?,
+        rating: Double?
+    ): Int
+
+    @Transaction
+    @Query("SELECT * FROM movies WHERE title = :title LIMIT 1")
+    suspend fun getMovieByTitle(title: String): MovieWithDetails?
+
+    @Transaction
+    @Query("""
+        SELECT m.* FROM movies m 
+        LEFT JOIN videos v ON m.id = v.movie_id 
+        WHERE v.url = :videoUrl OR m.title = :title 
+        LIMIT 1
+    """)
+    suspend fun getMovieByUrlOrTitle(videoUrl: String, title: String): MovieWithDetails?
 }

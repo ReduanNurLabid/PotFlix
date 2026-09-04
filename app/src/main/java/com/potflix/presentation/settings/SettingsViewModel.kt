@@ -63,6 +63,32 @@ class SettingsViewModel @Inject constructor(
     
     val currentUserEmail = firebaseSyncManager.currentUserEmail
 
+    val dailyNotificationEnabled = serverPreferences.dailyNotificationEnabled
+
+    fun setDailyNotificationEnabled(enabled: Boolean) {
+        serverPreferences.setDailyNotificationEnabled(enabled)
+        if (enabled) {
+            com.potflix.worker.DailyNotificationScheduler.scheduleNextDailyNotification(application)
+            _toastMessage.value = "Daily recommendations enabled"
+        } else {
+            com.potflix.worker.DailyNotificationScheduler.cancelDailyNotification(application)
+            _toastMessage.value = "Daily recommendations disabled"
+        }
+    }
+
+    val preferredAudioLanguage = serverPreferences.preferredAudioLanguage
+    val preferredSubtitleLanguage = serverPreferences.preferredSubtitleLanguage
+
+    fun setPreferredAudioLanguage(langCode: String) {
+        serverPreferences.setPreferredAudioLanguage(langCode)
+        _toastMessage.value = "Audio set to: ${com.potflix.util.LanguageUtils.getAudioLanguageDisplayName(langCode)}"
+    }
+
+    fun setPreferredSubtitleLanguage(langCode: String) {
+        serverPreferences.setPreferredSubtitleLanguage(langCode)
+        _toastMessage.value = "Subtitles set to: ${com.potflix.util.LanguageUtils.getSubtitleLanguageDisplayName(langCode)}"
+    }
+
     init {
         calculateCacheSize()
         fetchLastSyncTime()

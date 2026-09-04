@@ -30,7 +30,11 @@ import com.potflix.presentation.home.components.HeroBanner
 import com.potflix.presentation.home.components.Top10Row
 import com.potflix.presentation.common.shimmerEffect
 import com.potflix.presentation.navigation.Screen
+import androidx.compose.material3.pulltorefresh.PullToRefreshContainer
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MoviesScreen(
     navController: NavController,
@@ -42,10 +46,23 @@ fun MoviesScreen(
     val isLoading by viewModel.isLoading.collectAsState()
     val isHeroInWatchlist by viewModel.isHeroInWatchlist.collectAsState()
 
+    val pullToRefreshState = rememberPullToRefreshState()
+    if (pullToRefreshState.isRefreshing) {
+        LaunchedEffect(true) {
+            viewModel.refresh()
+        }
+    }
+    LaunchedEffect(isLoading) {
+        if (!isLoading) {
+            pullToRefreshState.endRefresh()
+        }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFF0A0A0A))
+            .nestedScroll(pullToRefreshState.nestedScrollConnection)
     ) {
         if (isLoading && categories.isEmpty()) {
             Box(modifier = Modifier.padding(top = 90.dp)) {
@@ -176,6 +193,17 @@ fun MoviesScreen(
             }
 
 
+        }
+
+        if (pullToRefreshState.verticalOffset > 0f || pullToRefreshState.isRefreshing) {
+            PullToRefreshContainer(
+                state = pullToRefreshState,
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 70.dp),
+                containerColor = Color(0xFF1E1E1E),
+                contentColor = MaterialTheme.colorScheme.primary
+            )
         }
     }
 }

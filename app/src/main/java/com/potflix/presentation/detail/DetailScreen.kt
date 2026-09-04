@@ -9,10 +9,15 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -32,6 +37,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.potflix.presentation.navigation.Screen
+import androidx.compose.material3.pulltorefresh.PullToRefreshContainer
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -42,16 +50,31 @@ fun DetailScreen(
     val movie by viewModel.movie.collectAsState()
     val seasons by viewModel.seasons.collectAsState()
     val streamError by viewModel.streamError.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
     val selectedSeasonIndex by viewModel.selectedSeasonIndex.collectAsState()
     val lastPlayedEpisodeUrl by viewModel.lastPlayedEpisodeUrl.collectAsState()
     val downloads by viewModel.downloads.collectAsState()
     val selectedSeason = seasons.getOrNull(selectedSeasonIndex)
+    
+    var showEditTmdbDialog by remember { mutableStateOf(false) }
     
     val context = androidx.compose.ui.platform.LocalContext.current
     val playVideo = { streamUrl: String, title: String ->
         val pos = movie?.playbackPosition ?: 0L
         val movieUrl = movie?.url ?: streamUrl
         navController.navigate(Screen.Player.createRoute(movieUrl, streamUrl, title, pos))
+    }
+
+    val pullToRefreshState = rememberPullToRefreshState()
+    if (pullToRefreshState.isRefreshing) {
+        LaunchedEffect(true) {
+            viewModel.reload()
+        }
+    }
+    LaunchedEffect(isLoading) {
+        if (!isLoading) {
+            pullToRefreshState.endRefresh()
+        }
     }
 
     Scaffold(
@@ -71,13 +94,18 @@ fun DetailScreen(
             )
         }
     ) { padding ->
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(
-                top = padding.calculateTopPadding(),
-                bottom = padding.calculateBottomPadding() + 80.dp
-            )
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .nestedScroll(pullToRefreshState.nestedScrollConnection)
         ) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(
+                    top = padding.calculateTopPadding(),
+                    bottom = padding.calculateBottomPadding() + 80.dp
+                )
+            ) {
             item {
                 Box(modifier = Modifier.height(300.dp)) {
                     AsyncImage(
@@ -157,30 +185,61 @@ fun DetailScreen(
                             }
                         }
                         
-                        var myListFocused by remember { mutableStateOf(false) }
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .clip(androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
-                                .background(if (inWatchlist) MaterialTheme.colorScheme.primary.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.15f))
-                                .onFocusChanged { myListFocused = it.isFocused }
-                                .then(if (myListFocused) Modifier.border(2.dp, Color.White, androidx.compose.foundation.shape.RoundedCornerShape(16.dp)) else Modifier)
-                                .clickable { viewModel.toggleWatchlist() }
-                                .padding(horizontal = 12.dp, vertical = 6.dp)
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Icon(
-                                imageVector = if (inWatchlist) Icons.Default.Check else Icons.Default.Add,
-                                contentDescription = null,
-                                tint = if (inWatchlist) MaterialTheme.colorScheme.primary else Color.White,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = "My List", 
-                                color = if (inWatchlist) MaterialTheme.colorScheme.primary else Color.White,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 12.sp
-                            )
+                            var fixTmdbFocused by remember { mutableStateOf(false) }
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .clip(androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
+                                    .background(Color.White.copy(alpha = 0.15f))
+                                    .onFocusChanged { fixTmdbFocused = it.isFocused }
+                                    .then(if (fixTmdbFocused) Modifier.border(2.dp, Color.White, androidx.compose.foundation.shape.RoundedCornerShape(16.dp)) else Modifier)
+                                    .clickable { showEditTmdbDialog = true }
+                                    .padding(horizontal = 10.dp, vertical = 6.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Edit,
+                                    contentDescription = "Fix TMDB",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "Fix TMDB",
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 12.sp
+                                )
+                            }
+
+                            var myListFocused by remember { mutableStateOf(false) }
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .clip(androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
+                                    .background(if (inWatchlist) MaterialTheme.colorScheme.primary.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.15f))
+                                    .onFocusChanged { myListFocused = it.isFocused }
+                                    .then(if (myListFocused) Modifier.border(2.dp, Color.White, androidx.compose.foundation.shape.RoundedCornerShape(16.dp)) else Modifier)
+                                    .clickable { viewModel.toggleWatchlist() }
+                                    .padding(horizontal = 12.dp, vertical = 6.dp)
+                            ) {
+                                Icon(
+                                    imageVector = if (inWatchlist) Icons.Default.Check else Icons.Default.Add,
+                                    contentDescription = null,
+                                    tint = if (inWatchlist) MaterialTheme.colorScheme.primary else Color.White,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "My List", 
+                                    color = if (inWatchlist) MaterialTheme.colorScheme.primary else Color.White,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 12.sp
+                                )
+                            }
                         }
                     }
                     
@@ -357,9 +416,57 @@ fun DetailScreen(
                                     Text("Download", fontWeight = FontWeight.SemiBold)
                                 }
                             }
-                        } else if (streamError == null) {
-                            Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                        } else if (isLoading) {
+                            Box(modifier = Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
                                 CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                            }
+                        } else {
+                            Card(
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                                colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.08f)),
+                                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(16.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(32.dp))
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(
+                                        text = "Stream or Episodes Unavailable",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 15.sp,
+                                        color = Color.White
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = if (streamError != null) "Error: $streamError" else "The server did not return playable streams or episodes. You can fix the TMDB metadata to resolve it.",
+                                        fontSize = 12.sp,
+                                        color = Color.White.copy(alpha = 0.7f),
+                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                    )
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                        Button(
+                                            onClick = { showEditTmdbDialog = true },
+                                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                                            shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
+                                        ) {
+                                            Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text("Fix TMDB Info", fontSize = 13.sp)
+                                        }
+                                        OutlinedButton(
+                                            onClick = { viewModel.reload() },
+                                            shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
+                                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
+                                        ) {
+                                            Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text("Retry", fontSize = 13.sp)
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -418,10 +525,11 @@ fun DetailScreen(
                                     viewModel.onPlayStarted()
                                     viewModel.saveLastPlayedEpisode(episode.url)
                                     
+                                    val fullTitle = if (movie != null) "${movie?.title} • ${episode.title}" else episode.title
                                     if (epDownload?.status == com.potflix.service.DownloadService.STATUS_SUCCESSFUL && epDownload.localUri != null) {
-                                        playVideo(epDownload.localUri, epDownload.title)
+                                        playVideo(epDownload.localUri, fullTitle)
                                     } else {
-                                        playVideo(episode.url, episode.title)
+                                        playVideo(episode.url, fullTitle)
                                     }
                                 },
                             headlineContent = { 
@@ -518,5 +626,266 @@ fun DetailScreen(
                 }
             }
         }
+
+        if (pullToRefreshState.verticalOffset > 0f || pullToRefreshState.isRefreshing) {
+            PullToRefreshContainer(
+                state = pullToRefreshState,
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = padding.calculateTopPadding()),
+                containerColor = Color(0xFF1E1E1E),
+                contentColor = MaterialTheme.colorScheme.primary
+            )
+        }
     }
+}
+
+    if (showEditTmdbDialog) {
+        val currentMovie = movie
+        TmdbCorrectionDialog(
+            initialTitle = currentMovie?.title ?: "",
+            initialType = currentMovie?.type ?: "tv",
+            onDismiss = { showEditTmdbDialog = false },
+            onSelectTmdb = { tmdbId, type ->
+                viewModel.applyTmdbCorrection(tmdbId, type) {
+                    showEditTmdbDialog = false
+                }
+            },
+            onSearch = { query, type, callback ->
+                viewModel.searchTmdb(query, type, callback)
+            }
+        )
+    }
+}
+
+fun cleanMediaTitle(rawTitle: String): String {
+    return rawTitle
+        .replace(Regex("""(?i)\b(s\d{1,2}(-s\d{1,2})?|season[.\s_-]*\d{1,2}|complete|bluray|web-dl|1080p|720p|4k|2160p|x264|x265|hevc|aac|dts)\b.*"""), "")
+        .replace(Regex("""[._\-]"""), " ")
+        .replace(Regex("""\s+"""), " ")
+        .trim()
+}
+
+@Composable
+fun TmdbCorrectionDialog(
+    initialTitle: String,
+    initialType: String,
+    onDismiss: () -> Unit,
+    onSelectTmdb: (tmdbId: Long, type: String) -> Unit,
+    onSearch: (query: String, type: String, callback: (List<com.potflix.data.remote.TmdbMovieDto>) -> Unit) -> Unit
+) {
+    var searchQuery by remember { mutableStateOf(cleanMediaTitle(initialTitle)) }
+    var selectedType by remember { mutableStateOf(if (initialType.equals("tv", ignoreCase = true)) "tv" else "movie") }
+    var directTmdbId by remember { mutableStateOf("") }
+    var isSearching by remember { mutableStateOf(false) }
+    var results by remember { mutableStateOf<List<com.potflix.data.remote.TmdbMovieDto>>(emptyList()) }
+
+    val performSearch = {
+        if (searchQuery.isNotBlank()) {
+            isSearching = true
+            onSearch(searchQuery.trim(), selectedType) { found ->
+                results = found
+                isSearching = false
+            }
+        }
+    }
+
+    LaunchedEffect(selectedType) {
+        performSearch()
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Fix TMDB Metadata", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                IconButton(onClick = onDismiss) {
+                    Icon(Icons.Default.Close, contentDescription = "Close")
+                }
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 480.dp)
+            ) {
+                // Type selector
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    FilterChip(
+                        selected = selectedType == "tv",
+                        onClick = { selectedType = "tv" },
+                        label = { Text("TV Series") },
+                        leadingIcon = if (selectedType == "tv") {
+                            { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                        } else null
+                    )
+                    FilterChip(
+                        selected = selectedType == "movie",
+                        onClick = { selectedType = "movie" },
+                        label = { Text("Movie") },
+                        leadingIcon = if (selectedType == "movie") {
+                            { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                        } else null
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Search query input
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    label = { Text("Title or Search Query") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    trailingIcon = {
+                        IconButton(onClick = { performSearch() }) {
+                            Icon(Icons.Default.Search, contentDescription = "Search")
+                        }
+                    },
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                        imeAction = androidx.compose.ui.text.input.ImeAction.Search
+                    ),
+                    keyboardActions = androidx.compose.foundation.text.KeyboardActions(
+                        onSearch = { performSearch() }
+                    )
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Direct TMDB ID input row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedTextField(
+                        value = directTmdbId,
+                        onValueChange = { if (it.all { ch -> ch.isDigit() }) directTmdbId = it },
+                        label = { Text("Or TMDB ID") },
+                        placeholder = { Text("e.g. 63351") },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f),
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                            keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
+                        )
+                    )
+                    Button(
+                        onClick = {
+                            val id = directTmdbId.toLongOrNull()
+                            if (id != null && id > 0) {
+                                onSelectTmdb(id, selectedType)
+                            }
+                        },
+                        enabled = directTmdbId.isNotBlank()
+                    ) {
+                        Text("Apply")
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Results list or searching indicator
+                if (isSearching) {
+                    Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(modifier = Modifier.size(32.dp), color = MaterialTheme.colorScheme.primary)
+                    }
+                } else if (results.isEmpty()) {
+                    Box(modifier = Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
+                        Text(
+                            text = "No results found. Try editing the search query above.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.White.copy(alpha = 0.6f),
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        )
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(results) { item ->
+                            val itemTitle = item.title ?: item.name ?: "Unknown"
+                            val itemDate = item.release_date ?: item.first_air_date
+                            val itemYear = itemDate?.take(4)
+
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { onSelectTmdb(item.id.toLong(), selectedType) },
+                                colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.08f)),
+                                shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    val posterUrl = item.poster_path?.let { "https://image.tmdb.org/t/p/w200$it" }
+                                    AsyncImage(
+                                        model = posterUrl,
+                                        contentDescription = null,
+                                        modifier = Modifier
+                                            .size(width = 45.dp, height = 65.dp)
+                                            .clip(androidx.compose.foundation.shape.RoundedCornerShape(4.dp))
+                                            .background(Color.DarkGray),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = itemTitle,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.White
+                                        )
+                                        Row(
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            if (itemYear != null) {
+                                                Text(itemYear, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                                            }
+                                            Text("•", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                                            Text("ID: ${item.id}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                                        }
+                                        if (!item.overview.isNullOrBlank()) {
+                                            Text(
+                                                text = item.overview,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = Color.White.copy(alpha = 0.7f),
+                                                maxLines = 2,
+                                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                            )
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    FilledTonalButton(
+                                        onClick = { onSelectTmdb(item.id.toLong(), selectedType) },
+                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                                        shape = androidx.compose.foundation.shape.RoundedCornerShape(6.dp)
+                                    ) {
+                                        Text("Select", fontSize = 12.sp)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
 }

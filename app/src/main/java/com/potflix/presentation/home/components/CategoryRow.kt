@@ -25,6 +25,7 @@ fun CategoryRow(
     category: Category,
     movies: List<Movie>,
     onMovieClick: (Movie) -> Unit,
+    onMovieLongClick: ((Movie) -> Unit)? = null,
     onSeeAllClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
@@ -80,7 +81,8 @@ fun CategoryRow(
             ) { movie ->
                 MovieCard(
                     movie = movie,
-                    onClick = { onMovieClick(movie) }
+                    onClick = { onMovieClick(movie) },
+                    onLongClick = onMovieLongClick?.let { { it(movie) } }
                 )
             }
         }

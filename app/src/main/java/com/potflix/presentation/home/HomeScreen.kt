@@ -34,7 +34,11 @@ import com.potflix.presentation.home.components.HeroBanner
 import com.potflix.presentation.home.components.Top10Row
 import com.potflix.presentation.navigation.Screen
 import com.potflix.presentation.common.shimmerEffect
+import androidx.compose.material3.pulltorefresh.PullToRefreshContainer
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     navController: NavController,
@@ -50,6 +54,19 @@ fun HomeScreen(
     val toastMessage by viewModel.toastMessage.collectAsState()
     val watchHistory by viewModel.watchHistory.collectAsState(initial = emptyList())
     val context = androidx.compose.ui.platform.LocalContext.current
+    var movieToDeleteFromHistory by remember { mutableStateOf<Movie?>(null) }
+
+    val pullToRefreshState = rememberPullToRefreshState()
+    if (pullToRefreshState.isRefreshing) {
+        LaunchedEffect(true) {
+            viewModel.refresh()
+        }
+    }
+    LaunchedEffect(isLoading) {
+        if (!isLoading) {
+            pullToRefreshState.endRefresh()
+        }
+    }
 
     LaunchedEffect(toastMessage) {
         toastMessage?.let {
@@ -65,6 +82,7 @@ fun HomeScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFF0A0A0A))
+            .nestedScroll(pullToRefreshState.nestedScrollConnection)
     ) {
         if (isLoading && categories.isEmpty()) {
             LazyColumn(
@@ -137,6 +155,9 @@ fun HomeScreen(
                                 } else {
                                     navController.navigate(Screen.Detail.createRoute(movie))
                                 }
+                            },
+                            onMovieLongClick = { movie ->
+                                movieToDeleteFromHistory = movie
                             },
                             onSeeAllClick = { } // Hide or do nothing for history see all for now
                         )
@@ -269,5 +290,47 @@ fun HomeScreen(
                 }
             }
         }
+
+        if (pullToRefreshState.verticalOffset > 0f || pullToRefreshState.isRefreshing) {
+            PullToRefreshContainer(
+                state = pullToRefreshState,
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 70.dp),
+                containerColor = Color(0xFF1E1E1E),
+                contentColor = MaterialTheme.colorScheme.primary
+            )
+        }
+    }
+
+    if (movieToDeleteFromHistory != null) {
+        val targetMovie = movieToDeleteFromHistory!!
+        AlertDialog(
+            onDismissRequest = { movieToDeleteFromHistory = null },
+            title = { Text("Remove from Continue Watching?", fontWeight = FontWeight.Bold, color = Color.White) },
+            text = { 
+                Text(
+                    "Are you sure you want to remove \"${targetMovie.title}\" from your continue watching list?",
+                    color = Color.White.copy(alpha = 0.8f)
+                ) 
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.removeFromWatchHistory(targetMovie)
+                        android.widget.Toast.makeText(context, "Removed from Continue Watching", android.widget.Toast.LENGTH_SHORT).show()
+                        movieToDeleteFromHistory = null
+                    }
+                ) {
+                    Text("Remove", color = Color(0xFFE50914), fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { movieToDeleteFromHistory = null }) {
+                    Text("Cancel", color = Color.White.copy(alpha = 0.7f))
+                }
+            },
+            containerColor = Color(0xFF1E1E24)
+        )
     }
 }

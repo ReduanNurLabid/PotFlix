@@ -5,10 +5,13 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Done
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -38,6 +41,8 @@ fun SettingsScreen(
 
     val activeServer by viewModel.activeServer.collectAsState()
     var showServerDialog by remember { mutableStateOf(false) }
+    var showAudioLangDialog by remember { mutableStateOf(false) }
+    var showSubtitleLangDialog by remember { mutableStateOf(false) }
     
     LaunchedEffect(toastMessage) {
         toastMessage?.let {
@@ -137,6 +142,47 @@ fun SettingsScreen(
                     isLoading = isSyncing
                 )
             }
+
+            item {
+                Spacer(modifier = Modifier.height(16.dp))
+                SettingsSectionTitle("Notifications")
+            }
+
+            item {
+                val dailyNotifEnabled by viewModel.dailyNotificationEnabled.collectAsState()
+                SettingsSwitchItem(
+                    icon = Icons.Default.Notifications,
+                    title = "Daily Recommendations",
+                    subtitle = "Get daily movie & TV show recommendations",
+                    checked = dailyNotifEnabled,
+                    onCheckedChange = { viewModel.setDailyNotificationEnabled(it) }
+                )
+            }
+
+            item {
+                Spacer(modifier = Modifier.height(16.dp))
+                SettingsSectionTitle("Playback & Language")
+            }
+
+            item {
+                val currentAudioLang by viewModel.preferredAudioLanguage.collectAsState()
+                SettingsClickableItem(
+                    icon = Icons.Default.Settings,
+                    title = "Preferred Audio Language",
+                    subtitle = com.potflix.util.LanguageUtils.getAudioLanguageDisplayName(currentAudioLang),
+                    onClick = { showAudioLangDialog = true }
+                )
+            }
+
+            item {
+                val currentSubtitleLang by viewModel.preferredSubtitleLanguage.collectAsState()
+                SettingsClickableItem(
+                    icon = Icons.Default.Info,
+                    title = "Preferred Subtitle Language",
+                    subtitle = com.potflix.util.LanguageUtils.getSubtitleLanguageDisplayName(currentSubtitleLang),
+                    onClick = { showSubtitleLangDialog = true }
+                )
+            }
             
             item {
                 Spacer(modifier = Modifier.height(16.dp))
@@ -227,6 +273,88 @@ fun SettingsScreen(
         )
     }
 
+    if (showAudioLangDialog) {
+        val currentAudio by viewModel.preferredAudioLanguage.collectAsState()
+        AlertDialog(
+            onDismissRequest = { showAudioLangDialog = false },
+            title = { Text("Preferred Audio Language") },
+            text = {
+                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                    com.potflix.util.LanguageUtils.AUDIO_LANGUAGES.forEach { lang ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    viewModel.setPreferredAudioLanguage(lang.code)
+                                    showAudioLangDialog = false
+                                }
+                                .padding(vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = currentAudio == lang.code,
+                                onClick = {
+                                    viewModel.setPreferredAudioLanguage(lang.code)
+                                    showAudioLangDialog = false
+                                },
+                                colors = RadioButtonDefaults.colors(selectedColor = MaterialTheme.colorScheme.primary)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(lang.displayName, color = Color.White, fontSize = 15.sp)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showAudioLangDialog = false }) {
+                    Text("Cancel", color = Color.White)
+                }
+            },
+            containerColor = Color(0xFF1E1E28)
+        )
+    }
+
+    if (showSubtitleLangDialog) {
+        val currentSub by viewModel.preferredSubtitleLanguage.collectAsState()
+        AlertDialog(
+            onDismissRequest = { showSubtitleLangDialog = false },
+            title = { Text("Preferred Subtitle Language") },
+            text = {
+                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                    com.potflix.util.LanguageUtils.SUBTITLE_LANGUAGES.forEach { lang ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    viewModel.setPreferredSubtitleLanguage(lang.code)
+                                    showSubtitleLangDialog = false
+                                }
+                                .padding(vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = currentSub == lang.code,
+                                onClick = {
+                                    viewModel.setPreferredSubtitleLanguage(lang.code)
+                                    showSubtitleLangDialog = false
+                                },
+                                colors = RadioButtonDefaults.colors(selectedColor = MaterialTheme.colorScheme.primary)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(lang.displayName, color = Color.White, fontSize = 15.sp)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showSubtitleLangDialog = false }) {
+                    Text("Cancel", color = Color.White)
+                }
+            },
+            containerColor = Color(0xFF1E1E28)
+        )
+    }
+
     val showRestartDialog by viewModel.showRestartDialog.collectAsState()
     if (showRestartDialog) {
         AlertDialog(
@@ -295,7 +423,6 @@ fun SettingsScreen(
                 }
             },
             confirmButton = {
-                val context = androidx.compose.ui.platform.LocalContext.current
                 Button(
                     onClick = {
                         try {

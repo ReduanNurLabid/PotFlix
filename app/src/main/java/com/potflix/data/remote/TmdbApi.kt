@@ -14,7 +14,7 @@ interface TmdbApi {
     @GET("3/search/movie")
     suspend fun searchMovie(
         @Query("query") query: String,
-        @Query("primary_release_year") year: Int?,
+        @Query("primary_release_year") year: Int? = null,
         @Query("language") language: String = "en-US",
         @Query("page") page: Int = 1
     ): TmdbSearchResponse
@@ -22,7 +22,7 @@ interface TmdbApi {
     @GET("3/search/tv")
     suspend fun searchTv(
         @Query("query") query: String,
-        @Query("first_air_date_year") year: Int?,
+        @Query("first_air_date_year") year: Int? = null,
         @Query("language") language: String = "en-US",
         @Query("page") page: Int = 1
     ): TmdbSearchResponse
@@ -109,12 +109,20 @@ data class TmdbEpisodeDto(
 )
 
 data class TmdbDetailDto(
-    val genres: List<TmdbGenre>?,
-    val original_language: String?,
-    val runtime: Int?, // For movies
-    val episode_run_time: List<Int>?, // For TV
-    val credits: TmdbCredits?,
-    val vote_average: Double?
+    val id: Int? = null,
+    val title: String? = null,
+    val name: String? = null,
+    val overview: String? = null,
+    val poster_path: String? = null,
+    val backdrop_path: String? = null,
+    val release_date: String? = null,
+    val first_air_date: String? = null,
+    val genres: List<TmdbGenre>? = null,
+    val original_language: String? = null,
+    val runtime: Int? = null, // For movies
+    val episode_run_time: List<Int>? = null, // For TV
+    val credits: TmdbCredits? = null,
+    val vote_average: Double? = null
 )
 
 data class TmdbGenre(
