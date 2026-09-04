@@ -606,13 +606,13 @@
     </div>
 
     <!-- Main Direct Download Button -->
-    <a id="download-main" href="https://github.com/ReduanNurLabid/PotFlix/releases/latest/download/potflix-arm64-v8a-release.apk" class="btn-main">
+    <a id="download-main" href="https://github.com/ReduanNurLabid/PotFlix/releases/latest/download/potflix-arm64-v8a-release.apk" download="potflix-arm64-v8a-release.apk" onclick="downloadDirect(event, this.href, 'potflix-arm64-v8a-release.apk')" class="btn-main">
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
         <polyline points="7 10 12 15 17 10"></polyline>
         <line x1="12" y1="15" x2="12" y2="3"></line>
       </svg>
-      Download for Android (APK)
+      <span id="btn-main-label">Download for Android (APK)</span>
     </a>
     <div class="sub-note">v2.1.2 • ~51 MB • For Samsung, Xiaomi, Pixel, OnePlus & Modern Phones (ARM64)</div>
 
@@ -625,7 +625,7 @@
           <h4>TV Boxes & Amazon Firestick</h4>
           <p>For Fire TV Stick, Mi Box, and 32-bit Smart TVs (ARMv7)</p>
         </div>
-        <a href="https://github.com/ReduanNurLabid/PotFlix/releases/latest/download/potflix-armeabi-v7a-release.apk" class="btn-small">
+        <a href="https://github.com/ReduanNurLabid/PotFlix/releases/latest/download/potflix-armeabi-v7a-release.apk" download="potflix-armeabi-v7a-release.apk" onclick="downloadDirect(event, this.href, 'potflix-armeabi-v7a-release.apk')" class="btn-small">
           Download (47 MB)
         </a>
       </div>
@@ -635,7 +635,7 @@
           <h4>Universal Version</h4>
           <p>Works on all devices if you're not sure which to choose</p>
         </div>
-        <a href="https://github.com/ReduanNurLabid/PotFlix/releases/latest/download/potflix-universal-release.apk" class="btn-small">
+        <a href="https://github.com/ReduanNurLabid/PotFlix/releases/latest/download/potflix-universal-release.apk" download="potflix-universal-release.apk" onclick="downloadDirect(event, this.href, 'potflix-universal-release.apk')" class="btn-small">
           Download (182 MB)
         </a>
       </div>
@@ -936,7 +936,7 @@
             const isApk = asset.name.endsWith('.apk');
             const icon = isApk ? '📱' : '💻';
             return `
-              <a href="${asset.browser_download_url}" class="asset-btn" download>
+              <a href="${asset.browser_download_url}" class="asset-btn" download="${asset.name}" onclick="downloadDirect(event, this.href, '${asset.name}')">
                 <span>${icon}</span>
                 <span>${asset.name}</span>
                 <span class="asset-size">(${sizeMb})</span>
@@ -969,6 +969,45 @@
         btnText.textContent = '✓ Updated';
         setTimeout(() => { btnText.textContent = '↻ Refresh'; }, 2000);
       }
+    }
+
+    /* Seamless Direct APK Downloader (Bypasses popup / new tabs on mobile) */
+    function downloadDirect(e, url, filename) {
+      if (e) e.preventDefault();
+
+      // Visual feedback on main button
+      const mainLabel = document.getElementById('btn-main-label');
+      if (mainLabel && e && (e.currentTarget.id === 'download-main')) {
+        const originalText = mainLabel.textContent;
+        mainLabel.textContent = '⬇️ Starting Download...';
+        setTimeout(() => { mainLabel.textContent = originalText; }, 2500);
+      }
+
+      // Method 1: Hidden iframe triggers browser download manager without tab navigation or popup window
+      let iframe = document.getElementById('dl-hidden-frame');
+      if (!iframe) {
+        iframe = document.createElement('iframe');
+        iframe.id = 'dl-hidden-frame';
+        iframe.style.display = 'none';
+        iframe.style.width = '0';
+        iframe.style.height = '0';
+        iframe.style.border = 'none';
+        document.body.appendChild(iframe);
+      }
+      iframe.src = url;
+
+      // Method 2: In-place download attribute click fallback
+      setTimeout(() => {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename || '';
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+          if (a.parentNode) document.body.removeChild(a);
+        }, 500);
+      }, 250);
     }
 
     // Automatically load releases when document loads
