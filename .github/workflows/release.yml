@@ -36,6 +36,10 @@ jobs:
       - name: Grant Execute Permission to Gradle Wrapper
         run: chmod +x gradlew
 
+      - name: Configure Gradle for CI Environment
+        run: |
+          sed -i '/org.gradle.java.home/d' gradle.properties || true
+
       - name: Build Release APKs (Split architectures + Universal)
         env:
           TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
