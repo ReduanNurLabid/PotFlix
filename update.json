@@ -1,9 +1,9 @@
 {
-  "versionCode": 213,
-  "versionName": "2.1.3",
+  "versionCode": 214,
+  "versionName": "2.1.4",
   "apkUrl": "https://github.com/ReduanNurLabid/PotFlix/releases/latest/download/potflix-arm64-v8a-release.apk",
   "apkUrlArm64": "https://github.com/ReduanNurLabid/PotFlix/releases/latest/download/potflix-arm64-v8a-release.apk",
   "apkUrlArmV7": "https://github.com/ReduanNurLabid/PotFlix/releases/latest/download/potflix-armeabi-v7a-release.apk",
   "apkUrlUniversal": "https://github.com/ReduanNurLabid/PotFlix/releases/latest/download/potflix-x86_64-release.apk",
-  "releaseNotes": "PotFlix v2.1.3:\n• GPU Hardware Acceleration: Smooth 4K decoding with zero stutter & battery savings\n• Black screen fix on screen lock/resume in video player\n• Smart multi-season and complex release name grouping (S01-S04, .SEASON.01)\n• Fix TMDB Metadata tool with crowd-sourced Firebase suggestions\n• Universal pull-down-to-refresh across Home, Movies, TV, and Details\n• Delete from Continue Watching via click & hold (long-press) on poster\n• Main-thread performance optimizations & low-memory stability"
+  "releaseNotes": "PotFlix v2.1.4:\n• Fixed TMDB API: Restored general default API key so poster & metadata fetching works reliably out of the box\n• Custom TMDB API Key Setting: Users can now enter their own free TMDB API key or v4 token under Settings > Metadata & TMDB\n• Improved network interceptor to target TMDB endpoints without affecting AList or other CDN requests\n• All v2.1.3 improvements: GPU hardware acceleration, pull-to-refresh, Continue Watching management"
 }

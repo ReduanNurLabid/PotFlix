@@ -71,4 +71,28 @@ class ServerPreferences @Inject constructor(
         prefs.edit().putString("pref_subtitle_language", langCode).apply()
         _preferredSubtitleLanguage.value = langCode
     }
+
+    companion object {
+        const val DEFAULT_TMDB_API_KEY = "cdb4d6683a4de1f186e7da86dccdd7f1"
+    }
+
+    private val _customTmdbApiKey = MutableStateFlow(getCustomTmdbApiKey())
+    val customTmdbApiKey: StateFlow<String> = _customTmdbApiKey.asStateFlow()
+
+    fun getCustomTmdbApiKey(): String {
+        return prefs.getString("custom_tmdb_api_key", "") ?: ""
+    }
+
+    fun setCustomTmdbApiKey(apiKey: String) {
+        val trimmed = apiKey.trim()
+        prefs.edit().putString("custom_tmdb_api_key", trimmed).apply()
+        _customTmdbApiKey.value = trimmed
+    }
+
+    fun getEffectiveTmdbApiKey(): String {
+        val custom = getCustomTmdbApiKey()
+        if (custom.isNotBlank()) return custom
+        if (com.potflix.BuildConfig.TMDB_API_KEY.isNotBlank()) return com.potflix.BuildConfig.TMDB_API_KEY
+        return DEFAULT_TMDB_API_KEY
+    }
 }

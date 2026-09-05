@@ -14,7 +14,7 @@ val localPropertiesFile = rootProject.file("local.properties")
 if (localPropertiesFile.exists()) {
     localProperties.load(FileInputStream(localPropertiesFile))
 }
-val tmdbApiKey = localProperties.getProperty("TMDB_API_KEY") ?: System.getenv("TMDB_API_KEY") ?: ""
+val tmdbApiKey = localProperties.getProperty("TMDB_API_KEY") ?: System.getenv("TMDB_API_KEY") ?: "cdb4d6683a4de1f186e7da86dccdd7f1"
 
 base {
     archivesName.set("potflix")
@@ -28,8 +28,8 @@ android {
         applicationId = "com.potflix"
         minSdk = 24
         targetSdk = 35
-        versionCode = 213
-        versionName = "2.1.3"
+        versionCode = 214
+        versionName = "2.1.4"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {

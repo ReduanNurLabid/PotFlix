@@ -43,6 +43,7 @@ fun SettingsScreen(
     var showServerDialog by remember { mutableStateOf(false) }
     var showAudioLangDialog by remember { mutableStateOf(false) }
     var showSubtitleLangDialog by remember { mutableStateOf(false) }
+    var showTmdbDialog by remember { mutableStateOf(false) }
     
     LaunchedEffect(toastMessage) {
         toastMessage?.let {
@@ -181,6 +182,27 @@ fun SettingsScreen(
                     title = "Preferred Subtitle Language",
                     subtitle = com.potflix.util.LanguageUtils.getSubtitleLanguageDisplayName(currentSubtitleLang),
                     onClick = { showSubtitleLangDialog = true }
+                )
+            }
+
+            item {
+                Spacer(modifier = Modifier.height(16.dp))
+                SettingsSectionTitle("Metadata & TMDB")
+            }
+
+            item {
+                val customTmdbKey by viewModel.customTmdbApiKey.collectAsState()
+                val subtitle = if (customTmdbKey.isNotBlank()) {
+                    val preview = if (customTmdbKey.length > 8) "${customTmdbKey.take(4)}...${customTmdbKey.takeLast(4)}" else "***"
+                    "Custom Key Active ($preview)"
+                } else {
+                    "Using General Default Key"
+                }
+                SettingsClickableItem(
+                    icon = Icons.Default.Settings,
+                    title = "TMDB API Key",
+                    subtitle = subtitle,
+                    onClick = { showTmdbDialog = true }
                 )
             }
             
@@ -443,6 +465,97 @@ fun SettingsScreen(
             dismissButton = {
                 TextButton(onClick = { viewModel.dismissUpdateDialog() }) {
                     Text("Later", color = Color.White)
+                }
+            },
+            containerColor = Color(0xFF1E1E28)
+        )
+    }
+
+    if (showTmdbDialog) {
+        val currentCustomKey by viewModel.customTmdbApiKey.collectAsState()
+        var inputKey by remember(currentCustomKey) { mutableStateOf(currentCustomKey) }
+        val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
+
+        AlertDialog(
+            onDismissRequest = { showTmdbDialog = false },
+            title = { Text("TMDB API Key") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        "PotFlix uses The Movie Database (TMDB) for posters, summaries, ratings, and cast info. A shared default key is included, but you can enter your personal TMDB API key to avoid rate limits.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.White.copy(alpha = 0.8f)
+                    )
+                    
+                    Text(
+                        text = "Get a free API key at themoviedb.org ↗",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.SemiBold
+                        ),
+                        modifier = Modifier
+                            .clickable {
+                                uriHandler.openUri("https://www.themoviedb.org/settings/api")
+                            }
+                            .padding(vertical = 4.dp)
+                    )
+
+                    OutlinedTextField(
+                        value = inputKey,
+                        onValueChange = { inputKey = it },
+                        label = { Text("TMDB API Key") },
+                        placeholder = { Text("v3 API key or v4 Bearer Token") },
+                        singleLine = false,
+                        maxLines = 3,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = Color.White.copy(alpha = 0.3f),
+                            focusedLabelColor = MaterialTheme.colorScheme.primary,
+                            unfocusedLabelColor = Color.White.copy(alpha = 0.6f),
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White
+                        ),
+                        trailingIcon = {
+                            if (inputKey.isNotEmpty()) {
+                                IconButton(onClick = { inputKey = "" }) {
+                                    Icon(
+                                        imageVector = Icons.Default.Delete,
+                                        contentDescription = "Clear",
+                                        tint = Color.White.copy(alpha = 0.6f)
+                                    )
+                                }
+                            }
+                        }
+                    )
+
+                    if (currentCustomKey.isNotBlank()) {
+                        TextButton(
+                            onClick = {
+                                viewModel.setCustomTmdbApiKey("")
+                                showTmdbDialog = false
+                            },
+                            contentPadding = PaddingValues(0.dp)
+                        ) {
+                            Text("Reset to General Default Key", color = MaterialTheme.colorScheme.error)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.setCustomTmdbApiKey(inputKey)
+                        showTmdbDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                ) {
+                    Text("Save", color = Color.White)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showTmdbDialog = false }) {
+                    Text("Cancel", color = Color.White)
                 }
             },
             containerColor = Color(0xFF1E1E28)

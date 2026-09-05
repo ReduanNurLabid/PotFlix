@@ -89,6 +89,18 @@ class SettingsViewModel @Inject constructor(
         _toastMessage.value = "Subtitles set to: ${com.potflix.util.LanguageUtils.getSubtitleLanguageDisplayName(langCode)}"
     }
 
+    val customTmdbApiKey = serverPreferences.customTmdbApiKey
+
+    fun setCustomTmdbApiKey(apiKey: String) {
+        val trimmed = apiKey.trim()
+        serverPreferences.setCustomTmdbApiKey(trimmed)
+        if (trimmed.isBlank()) {
+            _toastMessage.value = "Reset to default TMDB API key"
+        } else {
+            _toastMessage.value = "Custom TMDB API key saved"
+        }
+    }
+
     init {
         calculateCacheSize()
         fetchLastSyncTime()
