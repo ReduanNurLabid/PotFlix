@@ -25,8 +25,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.foundation.border
+import androidx.compose.foundation.lazy.rememberLazyListState
+import kotlinx.coroutines.delay
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -58,7 +62,6 @@ fun DetailScreen(
     
     var showEditTmdbDialog by remember { mutableStateOf(false) }
     
-    val context = androidx.compose.ui.platform.LocalContext.current
     val playVideo = { streamUrl: String, title: String ->
         val pos = movie?.playbackPosition ?: 0L
         val movieUrl = movie?.url ?: streamUrl
@@ -99,7 +102,9 @@ fun DetailScreen(
                 .fillMaxSize()
                 .nestedScroll(pullToRefreshState.nestedScrollConnection)
         ) {
+            val listState = rememberLazyListState()
             LazyColumn(
+                state = listState,
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(
                     top = padding.calculateTopPadding(),
@@ -145,104 +150,283 @@ fun DetailScreen(
                     val inWatchlist by viewModel.isInWatchlist.collectAsState()
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            movie?.rating?.let { rating ->
-                                if (rating > 0) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(androidx.compose.material.icons.Icons.Default.Star, contentDescription = "Rating", tint = Color(0xFFFFC107), modifier = Modifier.size(16.dp))
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Text(
-                                            text = String.format("%.1f", rating),
-                                            color = Color(0xFFFFC107),
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 14.sp
-                                        )
-                                    }
-                                }
-                            }
-                            movie?.year?.let { year ->
-                                if (year > 0) {
-                                    if ((movie?.rating ?: 0.0) > 0) Text("•", color = Color.Gray)
-                                    Text(year.toString(), color = Color.White.copy(alpha = 0.8f), fontSize = 14.sp)
-                                }
-                            }
-                            movie?.quality?.let { quality ->
-                                Text("•", color = Color.Gray)
-                                Box(
-                                    modifier = Modifier
-                                        .clip(androidx.compose.foundation.shape.RoundedCornerShape(4.dp))
-                                        .background(Color.White.copy(alpha = 0.2f))
-                                        .padding(horizontal = 6.dp, vertical = 2.dp)
-                                ) {
-                                    Text(quality.uppercase(), color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        movie?.rating?.let { rating ->
+                            if (rating > 0) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.Star, contentDescription = "Rating", tint = Color(0xFFFFC107), modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = String.format("%.1f", rating),
+                                        color = Color(0xFFFFC107),
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 14.sp
+                                    )
                                 }
                             }
                         }
-                        
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            var fixTmdbFocused by remember { mutableStateOf(false) }
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier
-                                    .clip(androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
-                                    .background(Color.White.copy(alpha = 0.15f))
-                                    .onFocusChanged { fixTmdbFocused = it.isFocused }
-                                    .then(if (fixTmdbFocused) Modifier.border(2.dp, Color.White, androidx.compose.foundation.shape.RoundedCornerShape(16.dp)) else Modifier)
-                                    .clickable { showEditTmdbDialog = true }
-                                    .padding(horizontal = 10.dp, vertical = 6.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Edit,
-                                    contentDescription = "Fix TMDB",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(14.dp)
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = "Fix TMDB",
-                                    color = Color.White,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 12.sp
-                                )
+                        movie?.year?.let { year ->
+                            if (year > 0) {
+                                if ((movie?.rating ?: 0.0) > 0) Text("•", color = Color.Gray)
+                                Text(year.toString(), color = Color.White.copy(alpha = 0.8f), fontSize = 14.sp)
                             }
-
-                            var myListFocused by remember { mutableStateOf(false) }
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
+                        }
+                        movie?.quality?.let { quality ->
+                            Text("•", color = Color.Gray)
+                            Box(
                                 modifier = Modifier
-                                    .clip(androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
-                                    .background(if (inWatchlist) MaterialTheme.colorScheme.primary.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.15f))
-                                    .onFocusChanged { myListFocused = it.isFocused }
-                                    .then(if (myListFocused) Modifier.border(2.dp, Color.White, androidx.compose.foundation.shape.RoundedCornerShape(16.dp)) else Modifier)
-                                    .clickable { viewModel.toggleWatchlist() }
-                                    .padding(horizontal = 12.dp, vertical = 6.dp)
+                                    .clip(androidx.compose.foundation.shape.RoundedCornerShape(4.dp))
+                                    .background(Color.White.copy(alpha = 0.2f))
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
                             ) {
-                                Icon(
-                                    imageVector = if (inWatchlist) Icons.Default.Check else Icons.Default.Add,
-                                    contentDescription = null,
-                                    tint = if (inWatchlist) MaterialTheme.colorScheme.primary else Color.White,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = "My List", 
-                                    color = if (inWatchlist) MaterialTheme.colorScheme.primary else Color.White,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 12.sp
-                                )
+                                Text(quality.uppercase(), color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                             }
+                        }
+                        if (seasons.isNotEmpty()) {
+                            Text("•", color = Color.Gray)
+                            Text(
+                                text = "${seasons.size} Season${if (seasons.size > 1) "s" else ""}",
+                                color = Color.White.copy(alpha = 0.8f),
+                                fontSize = 14.sp
+                            )
                         }
                     }
-                    
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // ─── PRIMARY PLAY BUTTON (Movies & TV Series) ───
+                    var playBtnFocused by remember { mutableStateOf(false) }
+                    val playFocusRequester = remember { FocusRequester() }
+                    val isTvSeries = movie?.type == "tv" || seasons.isNotEmpty()
+
+                    LaunchedEffect(Unit) {
+                        delay(200)
+                        try {
+                            playFocusRequester.requestFocus()
+                        } catch (_: Exception) {}
+                    }
+
+                    val isMovieVideoUrl = movie?.url?.let { 
+                        it.endsWith(".mkv", true) || 
+                        it.endsWith(".mp4", true) || 
+                        it.endsWith(".avi", true) || 
+                        it.endsWith(".webm", true) 
+                    } == true
+
+                    if (isTvSeries) {
+                        val allEpisodesWithSeason = seasons.flatMap { s -> s.episodes.map { ep -> Pair(s, ep) } }
+                        val lastPlayedPair = allEpisodesWithSeason.find { it.second.url == lastPlayedEpisodeUrl }
+                        val firstPair = allEpisodesWithSeason.firstOrNull()
+                        val targetPair = lastPlayedPair ?: firstPair
+
+                        if (targetPair != null) {
+                            val (targetSeason, targetEp) = targetPair
+                            val isResume = lastPlayedPair != null
+                            val epTitle = if (targetEp.title.isNotBlank()) " • ${targetEp.title}" else ""
+                            val playBtnText = if (isResume) {
+                                "Resume S${targetSeason.number}:E${targetEp.number ?: 1}$epTitle"
+                            } else {
+                                "Play S${targetSeason.number}:E${targetEp.number ?: 1}$epTitle"
+                            }
+
+                            Button(
+                                onClick = {
+                                    val epDownload = downloads.find { it.streamUrl == targetEp.url }
+                                    viewModel.onPlayStarted()
+                                    viewModel.saveLastPlayedEpisode(targetEp.url)
+                                    val fullTitle = if (movie != null) "${movie?.title} • ${targetEp.title}" else targetEp.title
+                                    if (epDownload?.status == com.potflix.service.DownloadService.STATUS_SUCCESSFUL && epDownload.localUri != null) {
+                                        playVideo(epDownload.localUri, fullTitle)
+                                    } else {
+                                        playVideo(targetEp.url, fullTitle)
+                                    }
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(50.dp)
+                                    .focusRequester(playFocusRequester)
+                                    .onFocusChanged { playBtnFocused = it.isFocused },
+                                border = if (playBtnFocused) androidx.compose.foundation.BorderStroke(3.dp, Color.White) else null,
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = if (playBtnFocused) Color.White else MaterialTheme.colorScheme.primary,
+                                    contentColor = if (playBtnFocused) Color.Black else Color.White
+                                ),
+                                shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
+                            ) {
+                                Icon(Icons.Default.PlayArrow, contentDescription = "Play", modifier = Modifier.size(26.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = playBtnText,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 16.sp,
+                                    maxLines = 1,
+                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                )
+                            }
+                        } else if (isLoading) {
+                            Box(modifier = Modifier.fillMaxWidth().height(50.dp), contentAlignment = Alignment.Center) {
+                                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
+                            }
+                        }
+                    } else if (isMovieVideoUrl) {
+                        val isResume = (movie?.playbackPosition ?: 0L) > 60_000L
+                        val playBtnText = if (isResume) "Resume Movie" else "Play Movie"
+
+                        Button(
+                            onClick = {
+                                movie?.let {
+                                    viewModel.onPlayStarted()
+                                    playVideo(it.url, it.title)
+                                }
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(50.dp)
+                                .focusRequester(playFocusRequester)
+                                .onFocusChanged { playBtnFocused = it.isFocused },
+                            border = if (playBtnFocused) androidx.compose.foundation.BorderStroke(3.dp, Color.White) else null,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (playBtnFocused) Color.White else MaterialTheme.colorScheme.primary,
+                                contentColor = if (playBtnFocused) Color.Black else Color.White
+                            ),
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
+                        ) {
+                            Icon(Icons.Default.PlayArrow, contentDescription = "Play", modifier = Modifier.size(26.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(playBtnText, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // ─── SECONDARY ACTIONS ROW (Download, My List, Fix TMDB) ───
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // 1. Download Button (for Movies)
+                        if (isMovieVideoUrl && !isTvSeries) {
+                            val download = downloads.find { it.streamUrl == movie?.url }
+                            var downloadBtnFocused by remember { mutableStateOf(false) }
+
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(42.dp)
+                                    .clip(androidx.compose.foundation.shape.RoundedCornerShape(8.dp))
+                                    .background(Color.White.copy(alpha = if (downloadBtnFocused) 0.3f else 0.15f))
+                                    .onFocusChanged { downloadBtnFocused = it.isFocused }
+                                    .then(if (downloadBtnFocused) Modifier.border(2.dp, Color.White, androidx.compose.foundation.shape.RoundedCornerShape(8.dp)) else Modifier)
+                                    .clickable {
+                                        if (download == null || download.status == com.potflix.service.DownloadService.STATUS_FAILED) {
+                                            movie?.let {
+                                                viewModel.startDownload(it.title, it.url, it.poster)
+                                            }
+                                        } else if (download.status == com.potflix.service.DownloadService.STATUS_SUCCESSFUL) {
+                                            val streamUrl = download.localUri
+                                            if (streamUrl != null) {
+                                                val movieUrl = movie?.url ?: streamUrl
+                                                navController.navigate(Screen.Player.createRoute(movieUrl, streamUrl, download.title))
+                                            }
+                                        } else {
+                                            navController.navigate(Screen.Watchlist.route)
+                                        }
+                                    }
+                                    .padding(horizontal = 8.dp)
+                            ) {
+                                if (download != null && download.status == com.potflix.service.DownloadService.STATUS_SUCCESSFUL) {
+                                    Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color(0xFF4CAF50), modifier = Modifier.size(18.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Offline", color = Color(0xFF4CAF50), fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                } else if (download != null && download.status != com.potflix.service.DownloadService.STATUS_FAILED) {
+                                    CircularProgressIndicator(color = Color.White, modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("${download.progress}%", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                } else {
+                                    Icon(painter = androidx.compose.ui.res.painterResource(id = com.potflix.R.drawable.ic_nav_downloads), contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Download", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                }
+                            }
+                        }
+
+                        // 2. My List Button
+                        var myListFocused by remember { mutableStateOf(false) }
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center,
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(42.dp)
+                                .clip(androidx.compose.foundation.shape.RoundedCornerShape(8.dp))
+                                .background(if (inWatchlist) MaterialTheme.colorScheme.primary.copy(alpha = 0.25f) else Color.White.copy(alpha = if (myListFocused) 0.3f else 0.15f))
+                                .onFocusChanged { myListFocused = it.isFocused }
+                                .then(if (myListFocused) Modifier.border(2.dp, Color.White, androidx.compose.foundation.shape.RoundedCornerShape(8.dp)) else Modifier)
+                                .clickable { viewModel.toggleWatchlist() }
+                                .padding(horizontal = 8.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (inWatchlist) Icons.Default.Check else Icons.Default.Add,
+                                contentDescription = null,
+                                tint = if (inWatchlist) MaterialTheme.colorScheme.primary else Color.White,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "My List", 
+                                color = if (inWatchlist) MaterialTheme.colorScheme.primary else Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp
+                            )
+                        }
+
+                        // 3. Fix TMDB Button
+                        var fixTmdbFocused by remember { mutableStateOf(false) }
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center,
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(42.dp)
+                                .clip(androidx.compose.foundation.shape.RoundedCornerShape(8.dp))
+                                .background(Color.White.copy(alpha = if (fixTmdbFocused) 0.3f else 0.15f))
+                                .onFocusChanged { fixTmdbFocused = it.isFocused }
+                                .then(if (fixTmdbFocused) Modifier.border(2.dp, Color.White, androidx.compose.foundation.shape.RoundedCornerShape(8.dp)) else Modifier)
+                                .clickable { showEditTmdbDialog = true }
+                                .padding(horizontal = 8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Edit,
+                                contentDescription = "Fix TMDB",
+                                tint = Color.White,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Fix TMDB",
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Overview
+                    Text(
+                        text = movie?.overview ?: "No overview available.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
+                        lineHeight = 22.sp
+                    )
+
+                    // Genres
                     if (!movie?.genres.isNullOrEmpty()) {
                         Spacer(modifier = Modifier.height(12.dp))
                         Text(
@@ -252,7 +436,8 @@ fun DetailScreen(
                             fontSize = 13.sp
                         )
                     }
-                    
+
+                    // Cast
                     if (!movie?.cast.isNullOrEmpty()) {
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
@@ -281,190 +466,53 @@ fun DetailScreen(
                             }
                         }
                     }
-                    Spacer(modifier = Modifier.height(16.dp))
-                    
-                    Text(
-                        text = movie?.overview ?: "No overview available.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
-                        lineHeight = 22.sp
-                    )
-                    
-                    Spacer(modifier = Modifier.height(24.dp))
-                    
-                    if (seasons.isEmpty()) {
-                        val isVideoUrl = movie?.url?.let { 
-                            it.endsWith(".mkv", true) || 
-                            it.endsWith(".mp4", true) || 
-                            it.endsWith(".avi", true) || 
-                            it.endsWith(".webm", true) 
-                        } == true
-                        
-                        if (streamError != null) {
-                            Text(
-                                text = "Failed to load stream: $streamError\nURL: ${movie?.url}",
-                                color = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.padding(bottom = 8.dp)
-                            )
-                        }
 
-                        if (isVideoUrl) {
-                            var playBtnFocused by remember { mutableStateOf(false) }
-                            Button(
-                                onClick = {
-                                    movie?.let {
-                                        viewModel.onPlayStarted()
-                                        playVideo(it.url, it.title)
-                                    }
-                                },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(48.dp)
-                                    .onFocusChanged { playBtnFocused = it.isFocused }
-                                    .then(
-                                        if (playBtnFocused) Modifier.padding(0.dp) else Modifier
-                                    ),
-                                border = if (playBtnFocused) androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = Color.White,
-                                    contentColor = Color.Black
-                                ),
-                                shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
+                    // Unavailable Stream / Episodes Error Card
+                    if (!isLoading && !isMovieVideoUrl && seasons.isEmpty()) {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Card(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.08f)),
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(16.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
                             ) {
-                                Icon(Icons.Default.PlayArrow, contentDescription = "Play", modifier = Modifier.size(24.dp))
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("Play", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                            }
-                            
-                            Spacer(modifier = Modifier.height(12.dp))
-                            
-                            val download = downloads.find { it.streamUrl == movie?.url }
-                            
-                            var downloadBtnFocused by remember { mutableStateOf(false) }
-                            Button(
-                                onClick = {
-                                    if (download == null || download.status == com.potflix.service.DownloadService.STATUS_FAILED) {
-                                        movie?.let {
-                                            viewModel.startDownload(it.title, it.url, it.poster)
-                                        }
-                                    } else if (download.status == com.potflix.service.DownloadService.STATUS_SUCCESSFUL) {
-                                        val streamUrl = download.localUri
-                                        if (streamUrl != null) {
-                                            val movieUrl = movie?.url ?: streamUrl
-                                            navController.navigate(Screen.Player.createRoute(movieUrl, streamUrl, download.title ?: "Video"))
-                                        }
-                                    } else {
-                                        navController.navigate(Screen.Watchlist.route)
-                                    }
-                                },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(48.dp)
-                                    .onFocusChanged { downloadBtnFocused = it.isFocused }
-                                    .then(if (downloadBtnFocused) Modifier.padding(0.dp) else Modifier)
-                                    .background(
-                                        if (download != null && download.status != com.potflix.service.DownloadService.STATUS_FAILED && download.status != com.potflix.service.DownloadService.STATUS_SUCCESSFUL)
-                                            Color.White.copy(alpha = 0.15f)
-                                        else
-                                            Color.Transparent,
-                                        shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
-                                    )
-                                    .clip(androidx.compose.foundation.shape.RoundedCornerShape(8.dp))
-                                    .drawWithContent {
-                                        if (download != null && download.status != com.potflix.service.DownloadService.STATUS_FAILED && download.status != com.potflix.service.DownloadService.STATUS_SUCCESSFUL) {
-                                            val fraction = download.progress / 100f
-                                            drawRect(
-                                                color = Color(0xFFE50914).copy(alpha = 0.6f),
-                                                size = Size(width = size.width * fraction, height = size.height)
-                                            )
-                                        }
-                                        drawContent()
-                                    },
-                                border = if (downloadBtnFocused) androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
-                                shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = if (download?.status == com.potflix.service.DownloadService.STATUS_SUCCESSFUL) 
-                                        Color(0xFF4CAF50) 
-                                    else if (download != null && download.status != com.potflix.service.DownloadService.STATUS_FAILED)
-                                        Color.Transparent
-                                    else Color.White.copy(alpha = 0.15f),
-                                    contentColor = Color.White
+                                Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(32.dp))
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = "Stream or Episodes Unavailable",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 15.sp,
+                                    color = Color.White
                                 )
-                            ) {
-                                if (download != null) {
-                                    if (download.status == com.potflix.service.DownloadService.STATUS_SUCCESSFUL) {
-                                        Icon(Icons.Default.PlayArrow, contentDescription = null)
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Text("Play Offline", fontWeight = FontWeight.SemiBold)
-                                    } else if (download.status == com.potflix.service.DownloadService.STATUS_FAILED) {
-                                        Icon(painter = androidx.compose.ui.res.painterResource(id = com.potflix.R.drawable.ic_nav_downloads), contentDescription = null, modifier = Modifier.size(20.dp))
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Text("Retry Download", fontWeight = FontWeight.SemiBold)
-                                    } else {
-                                        CircularProgressIndicator(
-                                            modifier = Modifier.size(20.dp),
-                                            color = Color.White,
-                                            strokeWidth = 2.dp
-                                        )
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        val statusText = if (download.status == com.potflix.service.DownloadService.STATUS_PAUSED) "Paused" else "Downloading..."
-                                        Text("$statusText ${download.progress}%", fontWeight = FontWeight.SemiBold)
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = if (streamError != null) "Error: $streamError" else "The server did not return playable streams or episodes. You can fix the TMDB metadata to resolve it.",
+                                    fontSize = 12.sp,
+                                    color = Color.White.copy(alpha = 0.7f),
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    Button(
+                                        onClick = { showEditTmdbDialog = true },
+                                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                                        shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
+                                    ) {
+                                        Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text("Fix TMDB Info", fontSize = 13.sp)
                                     }
-                                } else {
-                                    Icon(painter = androidx.compose.ui.res.painterResource(id = com.potflix.R.drawable.ic_nav_downloads), contentDescription = null, modifier = Modifier.size(20.dp))
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text("Download", fontWeight = FontWeight.SemiBold)
-                                }
-                            }
-                        } else if (isLoading) {
-                            Box(modifier = Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
-                                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-                            }
-                        } else {
-                            Card(
-                                modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
-                                colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.08f)),
-                                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
-                            ) {
-                                Column(
-                                    modifier = Modifier.padding(16.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally
-                                ) {
-                                    Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(32.dp))
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    Text(
-                                        text = "Stream or Episodes Unavailable",
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 15.sp,
-                                        color = Color.White
-                                    )
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text(
-                                        text = if (streamError != null) "Error: $streamError" else "The server did not return playable streams or episodes. You can fix the TMDB metadata to resolve it.",
-                                        fontSize = 12.sp,
-                                        color = Color.White.copy(alpha = 0.7f),
-                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                                    )
-                                    Spacer(modifier = Modifier.height(12.dp))
-                                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                        Button(
-                                            onClick = { showEditTmdbDialog = true },
-                                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-                                            shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
-                                        ) {
-                                            Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
-                                            Spacer(modifier = Modifier.width(6.dp))
-                                            Text("Fix TMDB Info", fontSize = 13.sp)
-                                        }
-                                        OutlinedButton(
-                                            onClick = { viewModel.reload() },
-                                            shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
-                                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
-                                        ) {
-                                            Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
-                                            Spacer(modifier = Modifier.width(6.dp))
-                                            Text("Retry", fontSize = 13.sp)
-                                        }
+                                    OutlinedButton(
+                                        onClick = { viewModel.reload() },
+                                        shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
+                                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
+                                    ) {
+                                        Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text("Retry", fontSize = 13.sp)
                                     }
                                 }
                             }

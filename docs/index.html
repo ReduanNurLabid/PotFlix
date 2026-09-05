@@ -1,10 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>PotFlix — Stream Movies & TV Shows (BDIX Only)</title>
-  <meta name="description" content="Stream Movies & TV Shows. Any BDIX Network, Anytime. Blazing-fast streaming, seamless server switching, and built-in offline downloads on Android for BDIX connected networks only." />
+  <title>PotFlix: Stream Movies & TV Shows (BDIX Only)</title>
+  <meta name="description"
+    content="Stream Movies & TV Shows. Any BDIX Network, Anytime. Blazing-fast streaming, seamless server switching, and built-in offline downloads on Android for BDIX connected networks only." />
   <link rel="icon" type="image/svg+xml" href="logo.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -254,9 +256,18 @@
     }
 
     @media (max-width: 600px) {
-      h1 { font-size: 32px; }
-      p.subtitle { font-size: 16px; }
-      .btn-main { font-size: 18px; padding: 16px 24px; }
+      h1 {
+        font-size: 32px;
+      }
+
+      p.subtitle {
+        font-size: 16px;
+      }
+
+      .btn-main {
+        font-size: 18px;
+        padding: 16px 24px;
+      }
     }
 
     /* Wi-Fi Tester Component */
@@ -576,6 +587,7 @@
     }
   </style>
 </head>
+
 <body>
 
   <div class="glow"></div>
@@ -586,35 +598,46 @@
       <div class="logo-text">POT<span>FLIX</span></div>
     </div>
 
-    <br/>
+    <br />
     <div class="badge" id="hero-badge">PotFlix v2.1.4 • BDIX Connected Networks Only</div>
 
     <h1>Stream Movies & TV Shows.<br>Any BDIX Network, Anytime.</h1>
     <p class="subtitle">
-      Blazing-fast streaming, seamless server switching, and built-in offline downloads on Android — for BDIX connected networks only.
+      Blazing-fast streaming, seamless server switching, and built-in offline downloads on Android — for BDIX connected
+      networks only.
     </p>
 
     <!-- Dhakaflix Notice Banner -->
-    <div style="background: rgba(255, 152, 0, 0.1); border: 1px solid rgba(255, 152, 0, 0.35); border-radius: 12px; padding: 14px 18px; text-align: left; margin-bottom: 28px;">
+    <div
+      style="background: rgba(255, 152, 0, 0.1); border: 1px solid rgba(255, 152, 0, 0.35); border-radius: 12px; padding: 14px 18px; text-align: left; margin-bottom: 28px;">
       <div style="display: flex; align-items: flex-start; gap: 12px;">
         <span style="font-size: 20px; line-height: 1;">⚠️</span>
         <div style="font-size: 13.5px; line-height: 1.5; color: #e0e0e0;">
           <strong style="color: #ffb74d;">Important Notice for Dhakaflix Users:</strong><br>
-          PotFlix features the high-speed <strong>Nagordola CDN</strong>. If your Wi-Fi network streams via <strong>Dhakaflix</strong>, please continue using <a href="https://github.com/ReduanNurLabid/PotFlix/releases/download/Android.v2.0.0/potflix.v2.1.1.apk" style="color: #ffb74d; font-weight: 700; text-decoration: underline;">PotFlix v2.1.1</a>, as Dhakaflix streaming is not yet tested on newer versions.
+          PotFlix features the high-speed <strong>Nagordola CDN</strong>. If your Wi-Fi network streams via
+          <strong>Dhakaflix</strong>, please continue using <a
+            href="https://github.com/ReduanNurLabid/PotFlix/releases/download/Android.v2.0.0/potflix.v2.1.1.apk"
+            style="color: #ffb74d; font-weight: 700; text-decoration: underline;">PotFlix v2.1.1</a>, as Dhakaflix
+          streaming is not yet tested on newer versions.
         </div>
       </div>
     </div>
 
     <!-- Main Direct Download Button -->
-    <a id="download-main" href="https://github.com/ReduanNurLabid/PotFlix/releases/latest/download/potflix-arm64-v8a-release.apk" download="potflix-arm64-v8a-release.apk" onclick="downloadDirect(event, this.href, 'potflix-arm64-v8a-release.apk')" class="btn-main">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+    <a id="download-main"
+      href="https://github.com/ReduanNurLabid/PotFlix/releases/latest/download/potflix-arm64-v8a-release.apk"
+      download="potflix-arm64-v8a-release.apk"
+      onclick="downloadDirect(event, this.href, 'potflix-arm64-v8a-release.apk')" class="btn-main">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+        stroke-linecap="round" stroke-linejoin="round">
         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
         <polyline points="7 10 12 15 17 10"></polyline>
         <line x1="12" y1="15" x2="12" y2="3"></line>
       </svg>
       <span id="btn-main-label">Download for Android (APK)</span>
     </a>
-    <div class="sub-note" id="hero-sub-note">v2.1.4 • ~54 MB • For Samsung, Xiaomi, Pixel, OnePlus & Modern Phones (ARM64)</div>
+    <div class="sub-note" id="hero-sub-note">v2.1.4 • ~54 MB • For Samsung, Xiaomi, Pixel, OnePlus & Modern Phones
+      (ARM64)</div>
 
     <!-- Other Devices Options -->
     <div class="other-devices">
@@ -625,7 +648,10 @@
           <h4>TV Boxes & Amazon Firestick</h4>
           <p>For Fire TV Stick, Mi Box, and 32-bit Smart TVs (ARMv7)</p>
         </div>
-        <a id="btn-download-armv7" href="https://github.com/ReduanNurLabid/PotFlix/releases/latest/download/potflix-armeabi-v7a-release.apk" download="potflix-armeabi-v7a-release.apk" onclick="downloadDirect(event, this.href, 'potflix-armeabi-v7a-release.apk')" class="btn-small">
+        <a id="btn-download-armv7"
+          href="https://github.com/ReduanNurLabid/PotFlix/releases/latest/download/potflix-armeabi-v7a-release.apk"
+          download="potflix-armeabi-v7a-release.apk"
+          onclick="downloadDirect(event, this.href, 'potflix-armeabi-v7a-release.apk')" class="btn-small">
           Download (50 MB)
         </a>
       </div>
@@ -635,7 +661,10 @@
           <h4>Universal & PC Emulators</h4>
           <p>Works on all devices (x86_64 / Universal fallback)</p>
         </div>
-        <a id="btn-download-universal" href="https://github.com/ReduanNurLabid/PotFlix/releases/latest/download/potflix-x86_64-release.apk" download="potflix-x86_64-release.apk" onclick="downloadDirect(event, this.href, 'potflix-x86_64-release.apk')" class="btn-small">
+        <a id="btn-download-universal"
+          href="https://github.com/ReduanNurLabid/PotFlix/releases/latest/download/potflix-x86_64-release.apk"
+          download="potflix-x86_64-release.apk" onclick="downloadDirect(event, this.href, 'potflix-x86_64-release.apk')"
+          class="btn-small">
           Download (61 MB)
         </a>
       </div>
@@ -681,7 +710,8 @@
     <div class="releases-card" id="releases-section">
       <div class="releases-header">
         <div class="releases-header-left">
-          <div class="tester-icon-badge" style="background: rgba(0, 150, 255, 0.12); border-color: rgba(0, 150, 255, 0.25); font-size: 20px;">
+          <div class="tester-icon-badge"
+            style="background: rgba(0, 150, 255, 0.12); border-color: rgba(0, 150, 255, 0.25); font-size: 20px;">
             📦
           </div>
           <div>
@@ -726,7 +756,8 @@
   </div>
 
   <footer>
-    <p>PotFlix is an open-source media client. View source code on <a href="https://github.com/ReduanNurLabid/PotFlix" target="_blank">GitHub</a>.</p>
+    <p>PotFlix is an open-source media client. View source code on <a href="https://github.com/ReduanNurLabid/PotFlix"
+        target="_blank">GitHub</a>.</p>
   </footer>
 
   <script>
@@ -1127,4 +1158,5 @@
     });
   </script>
 </body>
+
 </html>
