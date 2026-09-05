@@ -10,6 +10,7 @@
 [![Latest Version](https://img.shields.io/badge/Version-v3.0.0-E50914?style=for-the-badge)](https://github.com/ReduanNurLabid/PotFlix/releases/latest)
 [![Android](https://img.shields.io/badge/Platform-Android%207.0%2B-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://github.com/ReduanNurLabid/PotFlix/releases/latest)
 [![License](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)](LICENSE)
+[![Telegram](https://img.shields.io/badge/Telegram-Community_Chat-2CA5E0?style=for-the-badge&logo=telegram&logoColor=white)](https://t.me/PotFlixx)
 
 <br/>
 
@@ -63,8 +64,9 @@ Click any button below to download the APK directly to your phone, tablet, or TV
 
 - 🎬 **Extensive Catalog**: Hollywood, Bollywood, South Indian, Animation, and TV Series.
 - ⚡ **Multi-Server Streaming**: Seamlessly switch between local FTP and CDN servers.
-- 🎛️ **Modern Player**: Gesture brightness & volume controls, double-tap seek, and episode selection.
-- 📥 **Background Downloads**: Built-in download manager with real-time progress indicators.
+- 🎛️ **Modern Player**: Local `.srt`/`.vtt` subtitle support, gesture brightness & volume controls, double-tap seek, and episode selection.
+- 📥 **Background Downloads**: Built-in download manager with real-time progress indicators and offline playback support.
+- 🔐 **Authentication & Guest Mode**: Save favorites, track watch progress, and sync across devices, or browse instantly as a guest.
 - 🔄 **In-App Updates**: Automatically notifies and downloads newer versions from within the app.
 
 ---
