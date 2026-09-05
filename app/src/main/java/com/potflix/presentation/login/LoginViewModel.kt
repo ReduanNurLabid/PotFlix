@@ -73,6 +73,31 @@ class LoginViewModel @Inject constructor(
         }
     }
 
+    fun sendPasswordReset(emailToReset: String, onResult: (Boolean, String?) -> Unit) {
+        val targetEmail = emailToReset.trim().ifEmpty { _email.value.trim() }
+        if (targetEmail.isBlank()) {
+            onResult(false, "Please enter your email address.")
+            return
+        }
+        viewModelScope.launch {
+            val result = firebaseSyncManager.sendPasswordResetEmail(targetEmail)
+            if (result.isSuccess) {
+                onResult(true, "Password reset email sent to $targetEmail. Please check your inbox.")
+            } else {
+                onResult(false, result.exceptionOrNull()?.localizedMessage ?: "Failed to send reset email.")
+            }
+        }
+    }
+
+    fun loginAsGuest(onSuccess: () -> Unit) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            firebaseSyncManager.loginAsGuest()
+            _isLoading.value = false
+            onSuccess()
+        }
+    }
+
     fun clearError() {
         _errorMessage.value = null
     }

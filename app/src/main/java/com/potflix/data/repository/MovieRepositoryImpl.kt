@@ -100,9 +100,55 @@ class MovieRepositoryImpl @Inject constructor(
 
     override suspend fun searchMovies(query: String): Result<List<Movie>> {
         return try {
-            val results = movieDao.searchMovies(query)
+            val trimmed = query.trim()
+            if (trimmed.isBlank()) return Result.success(emptyList())
+
+            val localResults = movieDao.searchMovies(trimmed).toMutableList()
             val activeServer = serverPreferences.activeServer.value
-            Result.success(results.map { it.toDomainModel(activeServer) })
+
+            // If local title/overview search already found plenty of matches,
+            // return immediately without blocking on external TMDB network calls!
+            // Only query TMDB person if local search found few/no results (< 10)
+            if (trimmed.length >= 3 && localResults.size < 10) {
+                try {
+                    // Single fast network call using pre-packaged known_for (0 extra network calls!)
+                    val personResponse = tmdbApi.searchPerson(trimmed)
+                    val matchedPerson = personResponse.results.firstOrNull {
+                        it.name.contains(trimmed, ignoreCase = true) || trimmed.contains(it.name, ignoreCase = true)
+                    } ?: personResponse.results.firstOrNull()
+
+                    if (matchedPerson != null) {
+                        val creditTmdbIds = mutableListOf<Long>()
+                        val creditTitles = mutableListOf<String>()
+
+                        matchedPerson.known_for.forEach { kf ->
+                            creditTmdbIds.add(kf.id.toLong())
+                            val title = kf.title ?: kf.name
+                            if (!title.isNullOrBlank()) {
+                                creditTitles.add(title)
+                            }
+                        }
+
+                        val distinctIds = creditTmdbIds.distinct()
+                        if (distinctIds.isNotEmpty()) {
+                            val castMatchesById = movieDao.getAllByTmdbIds(distinctIds)
+                            localResults.addAll(castMatchesById)
+                        }
+
+                        val distinctTitles = creditTitles.distinct()
+                        if (distinctTitles.isNotEmpty()) {
+                            val castMatchesByTitle = movieDao.getMoviesByTitles(distinctTitles)
+                            localResults.addAll(castMatchesByTitle)
+                        }
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.w("MovieRepositoryImpl", "Person/Cast search skipped or timed out", e)
+                }
+            }
+
+            // Deduplicate results by local movie ID
+            val distinctResults = localResults.distinctBy { it.movie.id }
+            Result.success(distinctResults.map { it.toDomainModel(activeServer) })
         } catch (e: Exception) {
             android.util.Log.e("MovieRepositoryImpl", "Error searching movies", e)
             Result.failure(e)
@@ -130,20 +176,83 @@ class MovieRepositoryImpl @Inject constructor(
             android.util.Log.w("MovieRepositoryImpl", "Could not check local DB for updated movie details", e)
         }
 
-        val tmdbId = currentMovie.tmdbId ?: return Result.success(currentMovie)
+        var tmdbId = currentMovie.tmdbId
+        if (tmdbId == null) {
+            try {
+                // Auto-resolve TMDB ID if not present in Room
+                val cleanTitle = currentMovie.title
+                    .replace(Regex("""\b(19\d\d|20\d\d)\b.*"""), "")
+                    .replace(Regex("""\b(480p|720p|1080p|2160p|4k|bluray|web-dl|x264|x265|hevc)\b.*""", RegexOption.IGNORE_CASE), "")
+                    .replace(Regex("""[._\-]"""), " ")
+                    .trim()
+                
+                if (cleanTitle.isNotBlank()) {
+                    val searchResults = if (currentMovie.type == "tv") {
+                        api.searchTv(query = cleanTitle)
+                    } else {
+                        api.searchMovie(query = cleanTitle)
+                    }
+                    val match = searchResults.results.firstOrNull()
+                    if (match != null) {
+                        tmdbId = match.id
+                        currentMovie = currentMovie.copy(
+                            tmdbId = match.id,
+                            poster = currentMovie.poster ?: match.posterPath?.let { "https://image.tmdb.org/t/p/w500$it" },
+                            backdrop = currentMovie.backdrop ?: match.backdropPath?.let { "https://image.tmdb.org/t/p/w1280$it" },
+                            overview = currentMovie.overview ?: match.overview,
+                            rating = currentMovie.rating ?: match.voteAverage
+                        )
+                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.w("MovieRepositoryImpl", "Auto-search TMDB failed for ${currentMovie.title}", e)
+            }
+        }
+
+        if (tmdbId == null) return Result.success(currentMovie)
         
         return try {
             val tmdbDetails = if (currentMovie.type == "tv") {
-                api.getTvDetail(tmdbId)
+                api.getTvDetail(tmdbId, appendToResponse = "credits,videos")
             } else {
-                api.getMovieDetail(tmdbId)
+                api.getMovieDetail(tmdbId, appendToResponse = "credits,videos")
             }
             
+            var trailerKey: String? = tmdbDetails.videos?.results?.firstOrNull { 
+                it.site.equals("YouTube", ignoreCase = true) && it.type.equals("Trailer", ignoreCase = true) 
+            }?.key ?: tmdbDetails.videos?.results?.firstOrNull {
+                it.site.equals("YouTube", ignoreCase = true) && (it.type.equals("Teaser", ignoreCase = true) || it.type.equals("Clip", ignoreCase = true))
+            }?.key ?: tmdbDetails.videos?.results?.firstOrNull {
+                it.site.equals("YouTube", ignoreCase = true)
+            }?.key
+
+            if (trailerKey == null) {
+                try {
+                    val directVideos = if (currentMovie.type == "tv") {
+                        api.getTvVideos(tmdbId)
+                    } else {
+                        api.getMovieVideos(tmdbId)
+                    }
+                    trailerKey = directVideos.results.firstOrNull {
+                        it.site.equals("YouTube", ignoreCase = true) && it.type.equals("Trailer", ignoreCase = true)
+                    }?.key ?: directVideos.results.firstOrNull {
+                        it.site.equals("YouTube", ignoreCase = true)
+                    }?.key
+                } catch (e: Exception) {
+                    android.util.Log.w("MovieRepositoryImpl", "Direct videos query failed for tmdbId $tmdbId", e)
+                }
+            }
+
             val updatedMovie = currentMovie.copy(
+                tmdbId = tmdbId,
                 runtime = tmdbDetails.runtime ?: tmdbDetails.episode_run_time?.firstOrNull(),
                 language = tmdbDetails.original_language ?: currentMovie.language,
                 cast = tmdbDetails.credits?.cast?.map { it.name }?.take(10),
-                rating = tmdbDetails.vote_average ?: currentMovie.rating
+                rating = tmdbDetails.vote_average ?: currentMovie.rating,
+                backdrop = currentMovie.backdrop ?: tmdbDetails.backdrop_path?.let { "https://image.tmdb.org/t/p/w1280$it" },
+                poster = currentMovie.poster ?: tmdbDetails.poster_path?.let { "https://image.tmdb.org/t/p/w500$it" },
+                overview = if (!currentMovie.overview.isNullOrBlank()) currentMovie.overview else tmdbDetails.overview,
+                trailerKey = trailerKey ?: currentMovie.trailerKey
             )
             Result.success(updatedMovie)
         } catch (e: Exception) {

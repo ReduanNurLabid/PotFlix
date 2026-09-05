@@ -22,7 +22,11 @@ class FirebaseSyncManager @Inject constructor() {
                 auth.signInAnonymously().await()
                 Log.d("FirebaseSyncManager", "Signed in anonymously: ${auth.currentUser?.uid}")
             } catch (e: Exception) {
-                Log.e("FirebaseSyncManager", "Anonymous auth failed", e)
+                if (e.message?.contains("restricted to administrators", ignoreCase = true) == true) {
+                    Log.w("FirebaseSyncManager", "Anonymous auth is disabled in Firebase Console. Enable it in Firebase Console > Authentication > Sign-in method if anonymous sync is desired.")
+                } else {
+                    Log.w("FirebaseSyncManager", "Anonymous auth not available: ${e.localizedMessage}")
+                }
             }
         }
     }
@@ -45,6 +49,29 @@ class FirebaseSyncManager @Inject constructor() {
     suspend fun login(email: String, password: String): Result<Unit> {
         return try {
             auth.signInWithEmailAndPassword(email, password).await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    val isUserLoggedIn: Boolean
+        get() = auth.currentUser?.let { !it.isAnonymous } == true
+
+    suspend fun sendPasswordResetEmail(email: String): Result<Unit> {
+        return try {
+            auth.sendPasswordResetEmail(email.trim()).await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun loginAsGuest(): Result<Unit> {
+        return try {
+            if (auth.currentUser == null) {
+                initAuth()
+            }
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)

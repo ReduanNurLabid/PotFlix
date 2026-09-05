@@ -599,7 +599,7 @@
     </div>
 
     <br />
-    <div class="badge" id="hero-badge">PotFlix v2.1.4 • BDIX Connected Networks Only</div>
+    <div class="badge" id="hero-badge">PotFlix v3.0.0 • BDIX Connected Networks Only</div>
 
     <h1>Stream Movies & TV Shows.<br>Any BDIX Network, Anytime.</h1>
     <p class="subtitle">
@@ -636,7 +636,7 @@
       </svg>
       <span id="btn-main-label">Download for Android (APK)</span>
     </a>
-    <div class="sub-note" id="hero-sub-note">v2.1.4 • ~54 MB • For Samsung, Xiaomi, Pixel, OnePlus & Modern Phones
+    <div class="sub-note" id="hero-sub-note">v3.0.0 • ~54 MB • For Samsung, Xiaomi, Pixel, OnePlus & Modern Phones
       (ARM64)</div>
 
     <!-- Other Devices Options -->
@@ -885,7 +885,7 @@
 
       const rawTag = rel.tag_name || rel.versionName || rel.name || '';
       const verMatch = rawTag.match(/\d+\.\d+(\.\d+)?/);
-      const version = verMatch ? verMatch[0] : '2.1.4';
+      const version = verMatch ? verMatch[0] : '3.0.0';
 
       // Update badge
       const heroBadge = document.getElementById('hero-badge');
@@ -953,14 +953,25 @@
 
       const fallbackReleases = [
         {
+          tag_name: "Android.v3.0.0",
+          name: "PotFlix v3.0.0",
+          published_at: "2026-09-06T00:00:00Z",
+          body: "Major v3.0 Release: Redesigned Settings & TMDB Modal, Community Chat integration, Subtitle Player fix, Auth & Guest Mode, Smart Network & Offline streaming, and scrolling crash fix.",
+          assets: [
+            { name: "potflix-arm64-v8a-release.apk", size: 54056358, browser_download_url: "https://github.com/ReduanNurLabid/PotFlix/releases/latest/download/potflix-arm64-v8a-release.apk" },
+            { name: "potflix-armeabi-v7a-release.apk", size: 50005060, browser_download_url: "https://github.com/ReduanNurLabid/PotFlix/releases/latest/download/potflix-armeabi-v7a-release.apk" },
+            { name: "potflix-x86_64-release.apk", size: 61040301, browser_download_url: "https://github.com/ReduanNurLabid/PotFlix/releases/latest/download/potflix-x86_64-release.apk" }
+          ]
+        },
+        {
           tag_name: "Android.v2.1.4",
           name: "PotFlix v2.1.4",
           published_at: "2026-09-05T00:00:00Z",
           body: "Restored TMDB API key fallback, added Custom TMDB API Key setting under Settings > Metadata & TMDB, GPU hardware acceleration, and pull-down refresh.",
           assets: [
-            { name: "potflix-arm64-v8a-release.apk", size: 54035194, browser_download_url: "https://github.com/ReduanNurLabid/PotFlix/releases/latest/download/potflix-arm64-v8a-release.apk" },
-            { name: "potflix-armeabi-v7a-release.apk", size: 49983896, browser_download_url: "https://github.com/ReduanNurLabid/PotFlix/releases/latest/download/potflix-armeabi-v7a-release.apk" },
-            { name: "potflix-x86_64-release.apk", size: 61019137, browser_download_url: "https://github.com/ReduanNurLabid/PotFlix/releases/latest/download/potflix-x86_64-release.apk" }
+            { name: "potflix-arm64-v8a-release.apk", size: 54035194, browser_download_url: "https://github.com/ReduanNurLabid/PotFlix/releases/download/Android.v2.1.4/potflix-arm64-v8a-release.apk" },
+            { name: "potflix-armeabi-v7a-release.apk", size: 49983896, browser_download_url: "https://github.com/ReduanNurLabid/PotFlix/releases/download/Android.v2.1.4/potflix-armeabi-v7a-release.apk" },
+            { name: "potflix-x86_64-release.apk", size: 61019137, browser_download_url: "https://github.com/ReduanNurLabid/PotFlix/releases/download/Android.v2.1.4/potflix-x86_64-release.apk" }
           ]
         },
         {

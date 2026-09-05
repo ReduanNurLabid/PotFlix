@@ -61,16 +61,29 @@ interface TmdbApi {
     @GET("3/movie/{movie_id}")
     suspend fun getMovieDetail(
         @retrofit2.http.Path("movie_id") movieId: Int,
-        @Query("append_to_response") appendToResponse: String = "credits",
+        @Query("append_to_response") appendToResponse: String = "credits,videos",
         @Query("language") language: String = "en-US"
     ): TmdbDetailDto
     
     @GET("3/tv/{tv_id}")
     suspend fun getTvDetail(
         @retrofit2.http.Path("tv_id") tvId: Int,
-        @Query("append_to_response") appendToResponse: String = "credits",
+        @Query("append_to_response") appendToResponse: String = "credits,videos",
         @Query("language") language: String = "en-US"
     ): TmdbDetailDto
+
+    @GET("3/search/person")
+    suspend fun searchPerson(
+        @Query("query") query: String,
+        @Query("language") language: String = "en-US",
+        @Query("page") page: Int = 1
+    ): TmdbPersonSearchResponse
+
+    @GET("3/person/{person_id}/combined_credits")
+    suspend fun getPersonCombinedCredits(
+        @retrofit2.http.Path("person_id") personId: Int,
+        @Query("language") language: String = "en-US"
+    ): TmdbPersonCreditsResponse
 }
 
 data class TmdbSearchResponse(
@@ -122,7 +135,21 @@ data class TmdbDetailDto(
     val runtime: Int? = null, // For movies
     val episode_run_time: List<Int>? = null, // For TV
     val credits: TmdbCredits? = null,
+    val videos: TmdbVideosResponse? = null,
     val vote_average: Double? = null
+)
+
+data class TmdbVideosResponse(
+    val results: List<TmdbVideoDto>? = null
+)
+
+data class TmdbVideoDto(
+    val id: String? = null,
+    val key: String? = null,
+    val name: String? = null,
+    val site: String? = null,
+    val type: String? = null,
+    val official: Boolean? = null
 )
 
 data class TmdbGenre(
@@ -139,3 +166,29 @@ data class TmdbCast(
     val character: String?,
     val order: Int
 )
+
+data class TmdbPersonSearchResponse(
+    val results: List<TmdbPersonDto> = emptyList()
+)
+
+data class TmdbPersonDto(
+    val id: Int,
+    val name: String,
+    val known_for_department: String? = null,
+    val profile_path: String? = null,
+    val known_for: List<TmdbMovieDto> = emptyList()
+)
+
+data class TmdbPersonCreditsResponse(
+    val cast: List<TmdbPersonCreditCastDto> = emptyList()
+)
+
+data class TmdbPersonCreditCastDto(
+    val id: Long,
+    val title: String? = null,
+    val name: String? = null,
+    val release_date: String? = null,
+    val first_air_date: String? = null,
+    val media_type: String? = null
+)
+

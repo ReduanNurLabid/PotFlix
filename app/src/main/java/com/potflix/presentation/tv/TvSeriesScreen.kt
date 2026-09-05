@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
@@ -29,6 +30,9 @@ import com.potflix.presentation.home.components.CategoryRow
 import com.potflix.presentation.home.components.HeroBanner
 import com.potflix.presentation.home.components.Top10Row
 import com.potflix.presentation.common.shimmerEffect
+import com.potflix.presentation.common.HomeScreenSkeleton
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
 import com.potflix.presentation.navigation.Screen
 import androidx.compose.material3.pulltorefresh.PullToRefreshContainer
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
@@ -41,6 +45,7 @@ fun TvSeriesScreen(
     viewModel: TvSeriesViewModel = hiltViewModel()
 ) {
     val categories by viewModel.categories.collectAsState()
+    val distinctCategories = remember(categories) { categories.distinctBy { it.id } }
     val trendingSeries by viewModel.trendingTv.collectAsState()
     val categorySeries by viewModel.categoryTv.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
@@ -64,16 +69,19 @@ fun TvSeriesScreen(
             .background(Color(0xFF0A0A0A))
             .nestedScroll(pullToRefreshState.nestedScrollConnection)
     ) {
-        if (isLoading && categories.isEmpty()) {
-            Box(modifier = Modifier.padding(top = 90.dp)) {
-                ScreenSkeleton()
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(top = 90.dp, bottom = 100.dp)
-            ) {
-                // Hero Banner
+        Crossfade(
+            targetState = (isLoading && categories.isEmpty()),
+            animationSpec = tween(400),
+            label = "TvSeriesScreenCrossfade"
+        ) { loadingState ->
+            if (loadingState) {
+                HomeScreenSkeleton()
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(top = 90.dp, bottom = 100.dp)
+                ) {
+                    // Hero Banner
                 if (trendingSeries.isNotEmpty()) {
                     item {
                         val heroMovie = trendingSeries.first()
@@ -107,11 +115,11 @@ fun TvSeriesScreen(
                 }
 
                 // Category Rows
-                items(
-                    items = categories,
-                    key = { it.id },
-                    contentType = { "categoryRow" }
-                ) { category ->
+                itemsIndexed(
+                    items = distinctCategories,
+                    key = { index, category -> "tv_cat_${category.id}_$index" },
+                    contentType = { _, _ -> "categoryRow" }
+                ) { _, category ->
                     val seriesList = categorySeries[category.id] ?: emptyList()
                     if (seriesList.isNotEmpty()) {
                         CategoryRow(
@@ -133,6 +141,7 @@ fun TvSeriesScreen(
                 }
             }
         }
+    }
 
         // Translucent Header Bar (Overlay on top)
         Column(
@@ -207,42 +216,4 @@ fun TvSeriesScreen(
     }
 }
 
-@Composable
-fun ScreenSkeleton() {
-    Column(modifier = Modifier.fillMaxSize()) {
-        // Hero skeleton
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(450.dp)
-                .shimmerEffect()
-        )
-        
-        Spacer(modifier = Modifier.height(16.dp))
-        
-        // Rows
-        repeat(3) {
-            Box(
-                modifier = Modifier
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
-                    .width(120.dp)
-                    .height(24.dp)
-                    .shimmerEffect()
-            )
-            androidx.compose.foundation.lazy.LazyRow(
-                contentPadding = PaddingValues(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(5) {
-                    Box(
-                        modifier = Modifier
-                            .width(110.dp)
-                            .height(160.dp)
-                            .shimmerEffect()
-                    )
-                }
-            }
-            Spacer(modifier = Modifier.height(24.dp))
-        }
-    }
-}
+

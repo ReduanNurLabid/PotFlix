@@ -1,30 +1,43 @@
 package com.potflix.presentation.settings
 
 import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Done
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import com.potflix.BuildConfig
+import com.potflix.R
+import com.potflix.data.local.preferences.ServerConfig
+import com.potflix.presentation.navigation.Screen
+import com.potflix.presentation.theme.PotFlixRed
+import com.potflix.util.LanguageUtils
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -37,8 +50,9 @@ fun SettingsScreen(
     val toastMessage by viewModel.toastMessage.collectAsState()
     
     val context = LocalContext.current
-    var showClearCacheDialog by remember { mutableStateOf(false) }
+    val uriHandler = LocalUriHandler.current
 
+    var showClearCacheDialog by remember { mutableStateOf(false) }
     val activeServer by viewModel.activeServer.collectAsState()
     var showServerDialog by remember { mutableStateOf(false) }
     var showAudioLangDialog by remember { mutableStateOf(false) }
@@ -55,232 +69,430 @@ fun SettingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Settings", fontWeight = FontWeight.Bold) },
+                title = { 
+                    Text(
+                        "Settings", 
+                        fontWeight = FontWeight.Black,
+                        fontSize = 24.sp,
+                        letterSpacing = (-0.5).sp
+                    ) 
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background,
+                    containerColor = Color(0xFF0A0A0A),
                     titleContentColor = Color.White
                 )
             )
-        }
+        },
+        containerColor = Color(0xFF0A0A0A)
     ) { paddingValues ->
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues),
-            contentPadding = PaddingValues(vertical = 16.dp, horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 100.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
+            // ─── APP BRANDING HERO BANNER ───
             item {
-                SettingsSectionTitle("Account")
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF13131A)),
+                    border = BorderStroke(1.dp, Color(0xFF22222E))
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(
+                                brush = Brush.linearGradient(
+                                    colors = listOf(
+                                        Color(0xFFE50914).copy(alpha = 0.12f),
+                                        Color.Transparent
+                                    )
+                                )
+                            )
+                            .padding(18.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(48.dp)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(Color.Black.copy(alpha = 0.5f))
+                                        .padding(6.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Image(
+                                        painter = painterResource(id = R.drawable.ic_potflix_logo_vector),
+                                        contentDescription = "PotFlix Logo",
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(14.dp))
+                                Column {
+                                    Text(
+                                        text = "PotFlix",
+                                        style = MaterialTheme.typography.titleLarge,
+                                        fontWeight = FontWeight.Black,
+                                        color = Color.White
+                                    )
+                                    Text(
+                                        text = "v${BuildConfig.VERSION_NAME} • Streaming Engine",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = Color.White.copy(alpha = 0.55f)
+                                    )
+                                }
+                            }
+
+                            // Status Pill
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(20.dp))
+                                    .background(Color(0xFF10B981).copy(alpha = 0.15f))
+                                    .padding(horizontal = 10.dp, vertical = 4.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(6.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0xFF10B981))
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "Ready",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF10B981)
+                                )
+                            }
+                        }
+                    }
+                }
             }
-            
+
+            // ─── ACCOUNT SECTION ───
             item {
                 val email by viewModel.currentUserEmail.collectAsState(initial = null)
                 
-                if (email != null) {
-                    SettingsClickableItem(
-                        icon = androidx.compose.material.icons.Icons.Default.Info,
-                        title = "Logged in as",
-                        subtitle = email!!,
-                        onClick = {}
-                    )
+                Column {
+                    SettingsSectionHeader("Account & Sync")
                     Spacer(modifier = Modifier.height(8.dp))
-                    SettingsClickableItem(
-                        icon = androidx.compose.material.icons.Icons.Default.Delete,
-                        title = "Log Out",
-                        subtitle = "Sign out of your account",
-                        onClick = { viewModel.logout() }
+
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(18.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF13131A)),
+                        border = BorderStroke(1.dp, Color(0xFF22222E))
+                    ) {
+                        if (email != null) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(44.dp)
+                                            .clip(CircleShape)
+                                            .background(
+                                                brush = Brush.linearGradient(
+                                                    listOf(PotFlixRed, Color(0xFFB80710))
+                                                )
+                                            ),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = email!!.take(1).uppercase(),
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 20.sp,
+                                            color = Color.White
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.width(14.dp))
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = email!!,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 15.sp,
+                                            color = Color.White,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier.padding(top = 2.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.CloudDone,
+                                                contentDescription = null,
+                                                tint = Color(0xFF10B981),
+                                                modifier = Modifier.size(13.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text(
+                                                text = "Cloud Sync Active",
+                                                fontSize = 12.sp,
+                                                color = Color(0xFF10B981),
+                                                fontWeight = FontWeight.Medium
+                                            )
+                                        }
+                                    }
+                                    TextButton(
+                                        onClick = { viewModel.logout() },
+                                        colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFEF4444))
+                                    ) {
+                                        Text("Log Out", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                    }
+                                }
+                            }
+                        } else {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { navController.navigate(Screen.Login.route) }
+                                    .padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(44.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0xFF22222E)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.AccountCircle,
+                                        contentDescription = null,
+                                        tint = Color.White.copy(alpha = 0.7f),
+                                        modifier = Modifier.size(28.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(14.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "Sign in to PotFlix",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 15.sp,
+                                        color = Color.White
+                                    )
+                                    Text(
+                                        text = "Sync watchlist & history across devices",
+                                        fontSize = 12.sp,
+                                        color = Color.White.copy(alpha = 0.55f)
+                                    )
+                                }
+                                Button(
+                                    onClick = { navController.navigate(Screen.Login.route) },
+                                    colors = ButtonDefaults.buttonColors(containerColor = PotFlixRed),
+                                    shape = RoundedCornerShape(10.dp),
+                                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
+                                ) {
+                                    Text("Sign In", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ─── PLAYBACK & STREAMING GROUP ───
+            item {
+                val currentAudioLang by viewModel.preferredAudioLanguage.collectAsState()
+                val currentSubtitleLang by viewModel.preferredSubtitleLanguage.collectAsState()
+
+                SettingsCardGroup(title = "Streaming & Playback") {
+                    ModernSettingsItem(
+                        icon = Icons.Default.Dns,
+                        iconTint = Color(0xFFA855F7), // Purple
+                        title = "Content Server",
+                        subtitle = activeServer.name,
+                        trailingValue = activeServer.name,
+                        onClick = { showServerDialog = true },
+                        showDivider = true
                     )
-                } else {
-                    SettingsClickableItem(
-                        icon = androidx.compose.material.icons.Icons.Default.Info,
-                        title = "Login / Create Account",
-                        subtitle = "Sync your watchlist across devices",
-                        onClick = { navController.navigate(com.potflix.presentation.navigation.Screen.Login.route) }
+
+                    ModernSettingsItem(
+                        icon = Icons.Default.Audiotrack,
+                        iconTint = Color(0xFF3B82F6), // Blue
+                        title = "Preferred Audio",
+                        subtitle = LanguageUtils.getAudioLanguageDisplayName(currentAudioLang),
+                        trailingValue = LanguageUtils.getAudioLanguageDisplayName(currentAudioLang),
+                        onClick = { showAudioLangDialog = true },
+                        showDivider = true
+                    )
+
+                    ModernSettingsItem(
+                        icon = Icons.Default.Subtitles,
+                        iconTint = Color(0xFF06B6D4), // Cyan
+                        title = "Preferred Subtitles",
+                        subtitle = LanguageUtils.getSubtitleLanguageDisplayName(currentSubtitleLang),
+                        trailingValue = LanguageUtils.getSubtitleLanguageDisplayName(currentSubtitleLang),
+                        onClick = { showSubtitleLangDialog = true },
+                        showDivider = false
                     )
                 }
             }
-            
-            item {
-                Spacer(modifier = Modifier.height(16.dp))
-                SettingsSectionTitle("Server Configuration")
-            }
-            
-            item {
-                SettingsClickableItem(
-                    icon = Icons.Default.Settings,
-                    title = "Content Server",
-                    subtitle = activeServer.name,
-                    onClick = { showServerDialog = true }
-                )
-            }
-            
-            item {
-                Spacer(modifier = Modifier.height(16.dp))
-                SettingsSectionTitle("Storage")
-            }
-            
-            item {
-                SettingsClickableItem(
-                    icon = Icons.Default.Delete,
-                    title = "Clear App Cache",
-                    subtitle = "Free up space by clearing temporary files ($cacheSize)",
-                    onClick = { showClearCacheDialog = true },
-                    isLoading = isClearingCache
-                )
-            }
-            
+
+            // ─── STORAGE & DATABASE GROUP ───
             item {
                 val isSyncing by viewModel.isSyncing.collectAsState()
                 val syncProgress by viewModel.syncProgress.collectAsState()
                 val lastSyncTime by viewModel.lastSyncTime.collectAsState()
-                
-                SettingsClickableItem(
-                    icon = androidx.compose.material.icons.Icons.Default.Done,
-                    title = if (isSyncing) "Syncing Database..." else "Sync Database",
-                    subtitle = if (isSyncing) syncProgress else "Last synced: $lastSyncTime",
-                    onClick = { if (!isSyncing) viewModel.syncDatabase() },
-                    isLoading = isSyncing
-                )
+
+                SettingsCardGroup(title = "Storage & Database") {
+                    ModernSettingsItem(
+                        icon = Icons.Default.CleaningServices,
+                        iconTint = Color(0xFFF97316), // Orange
+                        title = "Clear Cache",
+                        subtitle = "Temporary streaming & poster cache ($cacheSize)",
+                        trailingValue = cacheSize,
+                        isLoading = isClearingCache,
+                        onClick = { showClearCacheDialog = true },
+                        showDivider = true
+                    )
+
+                    ModernSettingsItem(
+                        icon = Icons.Default.Sync,
+                        iconTint = Color(0xFF10B981), // Emerald
+                        title = if (isSyncing) "Syncing Database..." else "Sync Database",
+                        subtitle = if (isSyncing) syncProgress else "Last: $lastSyncTime",
+                        isLoading = isSyncing,
+                        onClick = { if (!isSyncing) viewModel.syncDatabase() },
+                        showDivider = false
+                    )
+                }
             }
 
-            item {
-                Spacer(modifier = Modifier.height(16.dp))
-                SettingsSectionTitle("Notifications")
-            }
-
+            // ─── PREFERENCES & METADATA GROUP ───
             item {
                 val dailyNotifEnabled by viewModel.dailyNotificationEnabled.collectAsState()
-                SettingsSwitchItem(
-                    icon = Icons.Default.Notifications,
-                    title = "Daily Recommendations",
-                    subtitle = "Get daily movie & TV show recommendations",
-                    checked = dailyNotifEnabled,
-                    onCheckedChange = { viewModel.setDailyNotificationEnabled(it) }
-                )
-            }
-
-            item {
-                Spacer(modifier = Modifier.height(16.dp))
-                SettingsSectionTitle("Playback & Language")
-            }
-
-            item {
-                val currentAudioLang by viewModel.preferredAudioLanguage.collectAsState()
-                SettingsClickableItem(
-                    icon = Icons.Default.Settings,
-                    title = "Preferred Audio Language",
-                    subtitle = com.potflix.util.LanguageUtils.getAudioLanguageDisplayName(currentAudioLang),
-                    onClick = { showAudioLangDialog = true }
-                )
-            }
-
-            item {
-                val currentSubtitleLang by viewModel.preferredSubtitleLanguage.collectAsState()
-                SettingsClickableItem(
-                    icon = Icons.Default.Info,
-                    title = "Preferred Subtitle Language",
-                    subtitle = com.potflix.util.LanguageUtils.getSubtitleLanguageDisplayName(currentSubtitleLang),
-                    onClick = { showSubtitleLangDialog = true }
-                )
-            }
-
-            item {
-                Spacer(modifier = Modifier.height(16.dp))
-                SettingsSectionTitle("Metadata & TMDB")
-            }
-
-            item {
                 val customTmdbKey by viewModel.customTmdbApiKey.collectAsState()
-                val subtitle = if (customTmdbKey.isNotBlank()) {
-                    val preview = if (customTmdbKey.length > 8) "${customTmdbKey.take(4)}...${customTmdbKey.takeLast(4)}" else "***"
-                    "Custom Key Active ($preview)"
-                } else {
-                    "Using General Default Key"
+                val tmdbStatus = if (customTmdbKey.isNotBlank()) "Personal Key" else "Default Key"
+
+                SettingsCardGroup(title = "Preferences & Metadata") {
+                    ModernSettingsSwitchItem(
+                        icon = Icons.Default.NotificationsActive,
+                        iconTint = Color(0xFFEC4899), // Pink
+                        title = "Daily Recommendations",
+                        subtitle = "Receive daily movie & series suggestions",
+                        checked = dailyNotifEnabled,
+                        onCheckedChange = { viewModel.setDailyNotificationEnabled(it) },
+                        showDivider = true
+                    )
+
+                    ModernSettingsItem(
+                        icon = Icons.Default.Key,
+                        iconTint = Color(0xFFF59E0B), // Amber
+                        title = "TMDB API Key",
+                        subtitle = "Personal key avoids shared rate limits",
+                        trailingValue = tmdbStatus,
+                        onClick = { showTmdbDialog = true },
+                        showDivider = false
+                    )
                 }
-                SettingsClickableItem(
-                    icon = Icons.Default.Settings,
-                    title = "TMDB API Key",
-                    subtitle = subtitle,
-                    onClick = { showTmdbDialog = true }
-                )
             }
-            
+
+            // ─── COMMUNITY & SUPPORT GROUP ───
             item {
-                Spacer(modifier = Modifier.height(16.dp))
-                SettingsSectionTitle("Updates")
-            }
-            
-            item {
-                SettingsClickableItem(
-                    icon = Icons.Default.Info,
-                    title = "Check for Updates",
-                    subtitle = "Make sure you have the latest version",
-                    onClick = { viewModel.checkForUpdates() }
-                )
-            }
-            
-            item {
-                Spacer(modifier = Modifier.height(16.dp))
-                SettingsSectionTitle("About")
-            }
-            
-            // Removed Export Pre-Packaged Database section
-            
-            item {
-                val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
-                SettingsClickableItem(
-                    icon = Icons.Default.Info,
-                    title = "Developer Info",
-                    subtitle = "reduan.vercel.app",
-                    onClick = {
-                        uriHandler.openUri("https://reduan.vercel.app")
-                    }
-                )
-            }
-            
-            item {
-                SettingsClickableItem(
-                    icon = Icons.Default.Info,
-                    title = "Version",
-                    subtitle = "PotFlix v${com.potflix.BuildConfig.VERSION_NAME}",
-                    onClick = {}
-                )
+                SettingsCardGroup(title = "Community & Support") {
+                    // Telegram Community Item
+                    ModernSettingsItem(
+                        icon = Icons.AutoMirrored.Filled.Send,
+                        iconTint = Color(0xFF29B6F6), // Telegram Blue
+                        title = "Telegram Community",
+                        subtitle = "Requests, feedback & announcements • @PotFlixx",
+                        trailingBadge = "Join ↗",
+                        badgeColor = Color(0xFF29B6F6),
+                        onClick = {
+                            uriHandler.openUri("https://t.me/PotFlixx")
+                        },
+                        showDivider = true
+                    )
+
+                    // Developer Info
+                    ModernSettingsItem(
+                        icon = Icons.Default.Code,
+                        iconTint = Color(0xFF8B5CF6), // Violet
+                        title = "Developer Portfolio",
+                        subtitle = "reduan.vercel.app ↗",
+                        onClick = {
+                            uriHandler.openUri("https://reduan.vercel.app")
+                        },
+                        showDivider = true
+                    )
+
+                    // Check for Updates
+                    ModernSettingsItem(
+                        icon = Icons.Default.SystemUpdate,
+                        iconTint = Color(0xFF14B8A6), // Teal
+                        title = "Check for Updates",
+                        subtitle = "Make sure you're running the newest build",
+                        onClick = { viewModel.checkForUpdates() },
+                        showDivider = true
+                    )
+
+                    // Version Info
+                    ModernSettingsItem(
+                        icon = Icons.Default.Info,
+                        iconTint = Color.White.copy(alpha = 0.5f),
+                        title = "Version",
+                        subtitle = "PotFlix build ${BuildConfig.VERSION_NAME}",
+                        trailingValue = "v${BuildConfig.VERSION_NAME}",
+                        onClick = {},
+                        showDivider = false
+                    )
+                }
             }
         }
     }
 
-    val updateAvailable by viewModel.updateAvailable.collectAsState()
-    
+    // ─── DIALOGS ───
+
     if (showServerDialog) {
         AlertDialog(
             onDismissRequest = { showServerDialog = false },
-            title = { Text("Select Content Server") },
+            shape = RoundedCornerShape(22.dp),
+            containerColor = Color(0xFF161622),
+            title = {
+                Text("Select Content Server", fontWeight = FontWeight.Bold, color = Color.White)
+            },
             text = {
-                Column {
-                    com.potflix.data.local.preferences.ServerConfig.BUILT_IN_SERVERS.forEach { server ->
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    ServerConfig.BUILT_IN_SERVERS.forEach { server ->
+                        val isSelected = activeServer.id == server.id
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(if (isSelected) PotFlixRed.copy(alpha = 0.12f) else Color.Transparent)
                                 .clickable {
                                     viewModel.setActiveServer(server)
                                     showServerDialog = false
                                 }
-                                .padding(vertical = 12.dp),
+                                .padding(horizontal = 12.dp, vertical = 10.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             RadioButton(
-                                selected = activeServer.id == server.id,
+                                selected = isSelected,
                                 onClick = {
                                     viewModel.setActiveServer(server)
                                     showServerDialog = false
                                 },
-                                colors = RadioButtonDefaults.colors(selectedColor = MaterialTheme.colorScheme.primary)
+                                colors = RadioButtonDefaults.colors(
+                                    selectedColor = PotFlixRed,
+                                    unselectedColor = Color.White.copy(alpha = 0.4f)
+                                )
                             )
-                            Spacer(modifier = Modifier.width(12.dp))
+                            Spacer(modifier = Modifier.width(10.dp))
                             Column {
-                                Text(server.name, fontWeight = FontWeight.Bold, color = Color.White)
-                                Text(server.baseUrl, style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.6f))
+                                Text(server.name, fontWeight = FontWeight.Bold, color = Color.White, fontSize = 15.sp)
+                                Text(server.baseUrl, style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.55f))
                             }
                         }
                     }
@@ -288,10 +500,9 @@ fun SettingsScreen(
             },
             confirmButton = {
                 TextButton(onClick = { showServerDialog = false }) {
-                    Text("Cancel", color = Color.White)
+                    Text("Close", color = Color.White.copy(alpha = 0.8f))
                 }
-            },
-            containerColor = Color(0xFF1E1E28)
+            }
         )
     }
 
@@ -299,27 +510,35 @@ fun SettingsScreen(
         val currentAudio by viewModel.preferredAudioLanguage.collectAsState()
         AlertDialog(
             onDismissRequest = { showAudioLangDialog = false },
-            title = { Text("Preferred Audio Language") },
+            shape = RoundedCornerShape(22.dp),
+            containerColor = Color(0xFF161622),
+            title = { Text("Preferred Audio Language", fontWeight = FontWeight.Bold, color = Color.White) },
             text = {
                 Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                    com.potflix.util.LanguageUtils.AUDIO_LANGUAGES.forEach { lang ->
+                    LanguageUtils.AUDIO_LANGUAGES.forEach { lang ->
+                        val isSelected = currentAudio == lang.code
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(if (isSelected) PotFlixRed.copy(alpha = 0.12f) else Color.Transparent)
                                 .clickable {
                                     viewModel.setPreferredAudioLanguage(lang.code)
                                     showAudioLangDialog = false
                                 }
-                                .padding(vertical = 10.dp),
+                                .padding(horizontal = 12.dp, vertical = 10.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             RadioButton(
-                                selected = currentAudio == lang.code,
+                                selected = isSelected,
                                 onClick = {
                                     viewModel.setPreferredAudioLanguage(lang.code)
                                     showAudioLangDialog = false
                                 },
-                                colors = RadioButtonDefaults.colors(selectedColor = MaterialTheme.colorScheme.primary)
+                                colors = RadioButtonDefaults.colors(
+                                    selectedColor = PotFlixRed,
+                                    unselectedColor = Color.White.copy(alpha = 0.4f)
+                                )
                             )
                             Spacer(modifier = Modifier.width(12.dp))
                             Text(lang.displayName, color = Color.White, fontSize = 15.sp)
@@ -329,10 +548,9 @@ fun SettingsScreen(
             },
             confirmButton = {
                 TextButton(onClick = { showAudioLangDialog = false }) {
-                    Text("Cancel", color = Color.White)
+                    Text("Cancel", color = Color.White.copy(alpha = 0.8f))
                 }
-            },
-            containerColor = Color(0xFF1E1E28)
+            }
         )
     }
 
@@ -340,27 +558,35 @@ fun SettingsScreen(
         val currentSub by viewModel.preferredSubtitleLanguage.collectAsState()
         AlertDialog(
             onDismissRequest = { showSubtitleLangDialog = false },
-            title = { Text("Preferred Subtitle Language") },
+            shape = RoundedCornerShape(22.dp),
+            containerColor = Color(0xFF161622),
+            title = { Text("Preferred Subtitle Language", fontWeight = FontWeight.Bold, color = Color.White) },
             text = {
                 Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                    com.potflix.util.LanguageUtils.SUBTITLE_LANGUAGES.forEach { lang ->
+                    LanguageUtils.SUBTITLE_LANGUAGES.forEach { lang ->
+                        val isSelected = currentSub == lang.code
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(if (isSelected) PotFlixRed.copy(alpha = 0.12f) else Color.Transparent)
                                 .clickable {
                                     viewModel.setPreferredSubtitleLanguage(lang.code)
                                     showSubtitleLangDialog = false
                                 }
-                                .padding(vertical = 10.dp),
+                                .padding(horizontal = 12.dp, vertical = 10.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             RadioButton(
-                                selected = currentSub == lang.code,
+                                selected = isSelected,
                                 onClick = {
                                     viewModel.setPreferredSubtitleLanguage(lang.code)
                                     showSubtitleLangDialog = false
                                 },
-                                colors = RadioButtonDefaults.colors(selectedColor = MaterialTheme.colorScheme.primary)
+                                colors = RadioButtonDefaults.colors(
+                                    selectedColor = PotFlixRed,
+                                    unselectedColor = Color.White.copy(alpha = 0.4f)
+                                )
                             )
                             Spacer(modifier = Modifier.width(12.dp))
                             Text(lang.displayName, color = Color.White, fontSize = 15.sp)
@@ -370,10 +596,9 @@ fun SettingsScreen(
             },
             confirmButton = {
                 TextButton(onClick = { showSubtitleLangDialog = false }) {
-                    Text("Cancel", color = Color.White)
+                    Text("Cancel", color = Color.White.copy(alpha = 0.8f))
                 }
-            },
-            containerColor = Color(0xFF1E1E28)
+            }
         )
     }
 
@@ -381,8 +606,10 @@ fun SettingsScreen(
     if (showRestartDialog) {
         AlertDialog(
             onDismissRequest = { viewModel.dismissRestartDialog() },
-            title = { Text("Restart Required") },
-            text = { Text("You have switched the content server to ${activeServer.name}. Please restart the app for the changes to take full effect and avoid any database conflicts.") },
+            shape = RoundedCornerShape(22.dp),
+            containerColor = Color(0xFF161622),
+            title = { Text("Restart Required", fontWeight = FontWeight.Bold, color = Color.White) },
+            text = { Text("You have switched the content server to ${activeServer.name}. Please restart the app for changes to take full effect.", color = Color.White.copy(alpha = 0.8f)) },
             confirmButton = {
                 val activity = LocalContext.current as? android.app.Activity
                 Button(
@@ -395,51 +622,57 @@ fun SettingsScreen(
                         activity?.finish()
                         Runtime.getRuntime().exit(0)
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                    colors = ButtonDefaults.buttonColors(containerColor = PotFlixRed),
+                    shape = RoundedCornerShape(10.dp)
                 ) {
-                    Text("Restart Now", color = Color.White)
+                    Text("Restart Now", color = Color.White, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { viewModel.dismissRestartDialog() }) {
-                    Text("Later", color = Color.White)
+                    Text("Later", color = Color.White.copy(alpha = 0.7f))
                 }
-            },
-            containerColor = Color(0xFF1E1E28)
+            }
         )
     }
     
     if (showClearCacheDialog) {
         AlertDialog(
             onDismissRequest = { showClearCacheDialog = false },
-            title = { Text("Clear Cache") },
-            text = { Text("Are you sure you want to clear the app cache? This will free up space but images may take slightly longer to load the next time you browse.") },
+            shape = RoundedCornerShape(22.dp),
+            containerColor = Color(0xFF161622),
+            title = { Text("Clear App Cache", fontWeight = FontWeight.Bold, color = Color.White) },
+            text = { Text("Are you sure you want to clear temporary cached images and streams? ($cacheSize will be freed).", color = Color.White.copy(alpha = 0.8f)) },
             confirmButton = {
-                TextButton(
+                Button(
                     onClick = {
                         showClearCacheDialog = false
                         viewModel.clearCache()
-                    }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = PotFlixRed),
+                    shape = RoundedCornerShape(10.dp)
                 ) {
-                    Text("Clear", color = MaterialTheme.colorScheme.primary)
+                    Text("Clear", color = Color.White, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showClearCacheDialog = false }) {
-                    Text("Cancel", color = Color.White)
+                    Text("Cancel", color = Color.White.copy(alpha = 0.7f))
                 }
-            },
-            containerColor = Color(0xFF1E1E28)
+            }
         )
     }
     
+    val updateAvailable by viewModel.updateAvailable.collectAsState()
     updateAvailable?.let { update ->
         AlertDialog(
             onDismissRequest = { viewModel.dismissUpdateDialog() },
-            title = { Text("Update Available: v${update.versionName}") },
+            shape = RoundedCornerShape(22.dp),
+            containerColor = Color(0xFF161622),
+            title = { Text("Update Available: v${update.versionName}", fontWeight = FontWeight.Bold, color = Color.White) },
             text = { 
                 Column {
-                    Text("A new version of PotFlix is available!")
+                    Text("A new version of PotFlix is ready for download!", color = Color.White)
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(update.releaseNotes, style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.7f))
                 }
@@ -453,36 +686,37 @@ fun SettingsScreen(
                             intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
                             context.startActivity(intent)
                         } catch (e: Exception) {
-                            android.widget.Toast.makeText(context, "Could not open browser to download update", android.widget.Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "Could not open browser for download", Toast.LENGTH_SHORT).show()
                         }
                         viewModel.dismissUpdateDialog()
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                    colors = ButtonDefaults.buttonColors(containerColor = PotFlixRed),
+                    shape = RoundedCornerShape(10.dp)
                 ) {
-                    Text("Download Update", color = Color.White)
+                    Text("Download Update", color = Color.White, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { viewModel.dismissUpdateDialog() }) {
-                    Text("Later", color = Color.White)
+                    Text("Later", color = Color.White.copy(alpha = 0.7f))
                 }
-            },
-            containerColor = Color(0xFF1E1E28)
+            }
         )
     }
 
     if (showTmdbDialog) {
         val currentCustomKey by viewModel.customTmdbApiKey.collectAsState()
         var inputKey by remember(currentCustomKey) { mutableStateOf(currentCustomKey) }
-        val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
 
         AlertDialog(
             onDismissRequest = { showTmdbDialog = false },
-            title = { Text("TMDB API Key") },
+            shape = RoundedCornerShape(22.dp),
+            containerColor = Color(0xFF161622),
+            title = { Text("TMDB API Key", fontWeight = FontWeight.Bold, color = Color.White) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(
-                        "PotFlix uses The Movie Database (TMDB) for posters, summaries, ratings, and cast info. A shared default key is included, but you can enter your personal TMDB API key to avoid rate limits.",
+                        "PotFlix uses The Movie Database (TMDB) for posters, ratings, and synopsis. Enter your personal TMDB API key to avoid shared rate limits.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = Color.White.copy(alpha = 0.8f)
                     )
@@ -490,7 +724,7 @@ fun SettingsScreen(
                     Text(
                         text = "Get a free API key at themoviedb.org ↗",
                         style = MaterialTheme.typography.bodyMedium.copy(
-                            color = MaterialTheme.colorScheme.primary,
+                            color = PotFlixRed,
                             fontWeight = FontWeight.SemiBold
                         ),
                         modifier = Modifier
@@ -508,10 +742,11 @@ fun SettingsScreen(
                         singleLine = false,
                         maxLines = 3,
                         modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = MaterialTheme.colorScheme.primary,
-                            unfocusedBorderColor = Color.White.copy(alpha = 0.3f),
-                            focusedLabelColor = MaterialTheme.colorScheme.primary,
+                            focusedBorderColor = PotFlixRed,
+                            unfocusedBorderColor = Color.White.copy(alpha = 0.25f),
+                            focusedLabelColor = PotFlixRed,
                             unfocusedLabelColor = Color.White.copy(alpha = 0.6f),
                             focusedTextColor = Color.White,
                             unfocusedTextColor = Color.White
@@ -520,7 +755,7 @@ fun SettingsScreen(
                             if (inputKey.isNotEmpty()) {
                                 IconButton(onClick = { inputKey = "" }) {
                                     Icon(
-                                        imageVector = Icons.Default.Delete,
+                                        imageVector = Icons.Default.Close,
                                         contentDescription = "Clear",
                                         tint = Color.White.copy(alpha = 0.6f)
                                     )
@@ -548,108 +783,242 @@ fun SettingsScreen(
                         viewModel.setCustomTmdbApiKey(inputKey)
                         showTmdbDialog = false
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                    colors = ButtonDefaults.buttonColors(containerColor = PotFlixRed),
+                    shape = RoundedCornerShape(10.dp)
                 ) {
-                    Text("Save", color = Color.White)
+                    Text("Save Key", color = Color.White, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showTmdbDialog = false }) {
-                    Text("Cancel", color = Color.White)
+                    Text("Cancel", color = Color.White.copy(alpha = 0.7f))
                 }
-            },
-            containerColor = Color(0xFF1E1E28)
+            }
         )
     }
 }
 
+// ─── HELPER COMPOSABLES ───
+
 @Composable
-fun SettingsSectionTitle(title: String) {
+private fun SettingsSectionHeader(title: String) {
     Text(
-        text = title.uppercase(),
-        style = MaterialTheme.typography.labelMedium,
-        color = MaterialTheme.colorScheme.primary,
+        text = title,
+        style = MaterialTheme.typography.titleSmall,
+        color = Color.White.copy(alpha = 0.5f),
         fontWeight = FontWeight.Bold,
-        modifier = Modifier.padding(bottom = 8.dp, start = 8.dp)
+        fontSize = 13.sp,
+        letterSpacing = 0.5.sp,
+        modifier = Modifier.padding(start = 4.dp, bottom = 4.dp)
     )
 }
 
 @Composable
-fun SettingsSwitchItem(
-    icon: ImageVector,
+private fun SettingsCardGroup(
     title: String,
-    subtitle: String,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit
+    content: @Composable ColumnScope.() -> Unit
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(Color(0xFF161622), shape = MaterialTheme.shapes.medium)
-            .clickable { onCheckedChange(!checked) }
-            .padding(16.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = Color.White.copy(alpha = 0.7f),
-            modifier = Modifier.size(24.dp)
-        )
-        Spacer(modifier = Modifier.width(16.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(text = title, fontWeight = FontWeight.SemiBold, fontSize = 16.sp, color = Color.White)
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(text = subtitle, fontSize = 13.sp, color = Color.White.copy(alpha = 0.6f))
+    Column {
+        SettingsSectionHeader(title)
+        Spacer(modifier = Modifier.height(6.dp))
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(18.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF13131A)),
+            border = BorderStroke(1.dp, Color(0xFF22222E))
+        ) {
+            Column(content = content)
         }
-        Spacer(modifier = Modifier.width(16.dp))
-        Switch(
-            checked = checked,
-            onCheckedChange = onCheckedChange,
-            colors = SwitchDefaults.colors(
-                checkedThumbColor = Color.White,
-                checkedTrackColor = MaterialTheme.colorScheme.primary,
-                uncheckedThumbColor = Color.White.copy(alpha = 0.7f),
-                uncheckedTrackColor = Color.White.copy(alpha = 0.2f)
-            )
-        )
     }
 }
 
 @Composable
-fun SettingsClickableItem(
+private fun ModernSettingsItem(
     icon: ImageVector,
+    iconTint: Color,
     title: String,
     subtitle: String,
-    onClick: () -> Unit,
-    isLoading: Boolean = false
+    trailingValue: String? = null,
+    trailingBadge: String? = null,
+    badgeColor: Color = PotFlixRed,
+    isLoading: Boolean = false,
+    showDivider: Boolean = true,
+    onClick: () -> Unit
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(Color(0xFF161622), shape = MaterialTheme.shapes.medium)
-            .clickable(onClick = onClick, enabled = !isLoading)
-            .padding(16.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = Color.White.copy(alpha = 0.7f),
-            modifier = Modifier.size(24.dp)
-        )
-        Spacer(modifier = Modifier.width(16.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(text = title, fontWeight = FontWeight.SemiBold, fontSize = 16.sp, color = Color.White)
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(text = subtitle, fontSize = 13.sp, color = Color.White.copy(alpha = 0.6f))
+    Column {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(enabled = !isLoading, onClick = onClick)
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Colored Squircle Icon Badge
+            Box(
+                modifier = Modifier
+                    .size(38.dp)
+                    .clip(RoundedCornerShape(11.dp))
+                    .background(iconTint.copy(alpha = 0.15f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = iconTint,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(14.dp))
+
+            // Title + Subtitle
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 15.sp,
+                    color = Color.White
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = subtitle,
+                    fontSize = 12.sp,
+                    color = Color.White.copy(alpha = 0.5f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            // Trailing Accessory
+            if (isLoading) {
+                CircularProgressIndicator(
+                    color = PotFlixRed,
+                    modifier = Modifier.size(20.dp),
+                    strokeWidth = 2.dp
+                )
+            } else if (trailingBadge != null) {
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(badgeColor.copy(alpha = 0.18f))
+                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                ) {
+                    Text(
+                        text = trailingBadge,
+                        color = badgeColor,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            } else if (trailingValue != null) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = trailingValue,
+                        fontSize = 13.sp,
+                        color = Color.White.copy(alpha = 0.6f),
+                        maxLines = 1
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                        contentDescription = null,
+                        tint = Color.White.copy(alpha = 0.3f),
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            } else {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = null,
+                    tint = Color.White.copy(alpha = 0.3f),
+                    modifier = Modifier.size(16.dp)
+                )
+            }
         }
-        if (isLoading) {
-            Spacer(modifier = Modifier.width(16.dp))
-            CircularProgressIndicator(
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(24.dp),
-                strokeWidth = 2.dp
+
+        if (showDivider) {
+            HorizontalDivider(
+                color = Color(0xFF1E1E28),
+                thickness = 0.6.dp,
+                modifier = Modifier.padding(start = 68.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun ModernSettingsSwitchItem(
+    icon: ImageVector,
+    iconTint: Color,
+    title: String,
+    subtitle: String,
+    checked: Boolean,
+    showDivider: Boolean = true,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Column {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onCheckedChange(!checked) }
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Colored Squircle Icon Badge
+            Box(
+                modifier = Modifier
+                    .size(38.dp)
+                    .clip(RoundedCornerShape(11.dp))
+                    .background(iconTint.copy(alpha = 0.15f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = iconTint,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(14.dp))
+
+            // Title + Subtitle
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 15.sp,
+                    color = Color.White
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = subtitle,
+                    fontSize = 12.sp,
+                    color = Color.White.copy(alpha = 0.5f)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Switch(
+                checked = checked,
+                onCheckedChange = onCheckedChange,
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = Color.White,
+                    checkedTrackColor = PotFlixRed,
+                    uncheckedThumbColor = Color.White.copy(alpha = 0.6f),
+                    uncheckedTrackColor = Color(0xFF282834)
+                )
+            )
+        }
+
+        if (showDivider) {
+            HorizontalDivider(
+                color = Color(0xFF1E1E28),
+                thickness = 0.6.dp,
+                modifier = Modifier.padding(start = 68.dp)
             )
         }
     }

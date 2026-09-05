@@ -91,6 +91,7 @@ class HomeViewModel @Inject constructor(
     }
 
     private var loadDataJob: kotlinx.coroutines.Job? = null
+    private var heroWatchlistJob: kotlinx.coroutines.Job? = null
 
     fun refresh() {
         loadHomeData()
@@ -115,7 +116,8 @@ class HomeViewModel @Inject constructor(
                     
                     val hero = top10.firstOrNull()
                     if (hero != null) {
-                        launch(kotlinx.coroutines.Dispatchers.Main) {
+                        heroWatchlistJob?.cancel()
+                        heroWatchlistJob = viewModelScope.launch {
                             watchlistRepository.isInWatchlist(hero.url).collectLatest { inWatchlist ->
                                 _isHeroInWatchlist.value = inWatchlist
                             }
@@ -155,6 +157,7 @@ class HomeViewModel @Inject constructor(
                     android.util.Log.e("HomeViewModel", "Error loading home data", e)
                 }
             } finally {
+                kotlinx.coroutines.delay(500)
                 _isLoading.value = false
             }
         }

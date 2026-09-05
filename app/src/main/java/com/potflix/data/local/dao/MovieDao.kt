@@ -16,15 +16,15 @@ import kotlinx.coroutines.flow.Flow
 interface MovieDao {
     
     @Transaction
-    @Query("SELECT * FROM movies WHERE category = :category GROUP BY title, year ORDER BY RANDOM() LIMIT :limit")
+    @Query("SELECT * FROM movies WHERE category = :category GROUP BY title, year ORDER BY CAST(year AS INTEGER) DESC, COALESCE(rating, 0.0) DESC, id DESC LIMIT :limit")
     suspend fun getRandomMoviesByCategory(category: String, limit: Int): List<MovieWithDetails>
 
     @Transaction
-    @Query("SELECT * FROM movies WHERE is_imdb_top_250 = 1 GROUP BY title, year ORDER BY RANDOM() LIMIT :limit")
+    @Query("SELECT * FROM movies WHERE is_imdb_top_250 = 1 GROUP BY title, year ORDER BY COALESCE(rating, 0.0) DESC, CAST(year AS INTEGER) DESC LIMIT :limit")
     suspend fun getImdbTop250Movies(limit: Int): List<MovieWithDetails>
 
     @Transaction
-    @Query("SELECT * FROM movies GROUP BY title, year ORDER BY RANDOM() LIMIT :limit")
+    @Query("SELECT * FROM movies GROUP BY title, year ORDER BY CAST(year AS INTEGER) DESC, COALESCE(rating, 0.0) DESC, id DESC LIMIT :limit")
     suspend fun getRandomMoviesAll(limit: Int): List<MovieWithDetails>
 
     @Transaction
@@ -54,7 +54,8 @@ interface MovieDao {
     @Transaction
     @Query("""
         SELECT * FROM movies 
-        WHERE title LIKE '%' || :query || '%' COLLATE NOCASE 
+        WHERE (title LIKE '%' || :query || '%' COLLATE NOCASE 
+           OR overview LIKE '%' || :query || '%' COLLATE NOCASE)
         GROUP BY title, year
         ORDER BY 
             CASE WHEN title LIKE :query COLLATE NOCASE THEN 0 
@@ -64,6 +65,10 @@ interface MovieDao {
         LIMIT 100
     """)
     suspend fun searchMovies(query: String): List<MovieWithDetails>
+
+    @Transaction
+    @Query("SELECT * FROM movies WHERE title IN (:titles) GROUP BY title, year")
+    suspend fun getMoviesByTitles(titles: List<String>): List<MovieWithDetails>
 
     @Transaction
     @Query("SELECT * FROM movies WHERE id = :movieId LIMIT 1")
@@ -123,7 +128,7 @@ interface MovieDao {
         INNER JOIN genres g ON mg.genre_id = g.id
         WHERE g.id = :genreId AND m.category NOT LIKE '%Series%' AND m.category NOT LIKE 'tvshows%'
         GROUP BY m.title, m.year
-        ORDER BY RANDOM()
+        ORDER BY CAST(m.year AS INTEGER) DESC, COALESCE(m.rating, 0.0) DESC, m.id DESC
         LIMIT :limit
     """)
     suspend fun getMoviesByGenreId(genreId: Long, limit: Int): List<MovieWithDetails>
@@ -135,7 +140,7 @@ interface MovieDao {
         INNER JOIN genres g ON mg.genre_id = g.id
         WHERE g.id = :genreId AND (m.category LIKE '%Series%' OR m.category LIKE 'tvshows%')
         GROUP BY m.title, m.year
-        ORDER BY RANDOM()
+        ORDER BY CAST(m.year AS INTEGER) DESC, COALESCE(m.rating, 0.0) DESC, m.id DESC
         LIMIT :limit
     """)
     suspend fun getTvSeriesByGenreId(genreId: Long, limit: Int): List<MovieWithDetails>

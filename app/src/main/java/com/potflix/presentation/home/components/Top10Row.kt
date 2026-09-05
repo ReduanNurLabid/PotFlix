@@ -46,13 +46,15 @@ fun Top10Row(
             )
         }
 
+        val distinctTop10 = androidx.compose.runtime.remember(movies) { movies.distinctBy { it.url }.take(10) }
+
         LazyRow(
             contentPadding = PaddingValues(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             itemsIndexed(
-                items = movies.take(10),
-                key = { _, movie -> movie.url },
+                items = distinctTop10,
+                key = { index, movie -> "top10_${movie.url}_$index" },
                 contentType = { _, _ -> "top10Item" }
             ) { index, movie ->
                 Top10Item(

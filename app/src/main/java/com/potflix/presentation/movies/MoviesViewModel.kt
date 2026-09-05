@@ -48,6 +48,7 @@ class MoviesViewModel @Inject constructor(
     }
 
     private var loadDataJob: kotlinx.coroutines.Job? = null
+    private var heroWatchlistJob: kotlinx.coroutines.Job? = null
 
     init {
         loadData()
@@ -69,7 +70,8 @@ class MoviesViewModel @Inject constructor(
 
                     val hero = top10.firstOrNull()
                     if (hero != null) {
-                        launch(kotlinx.coroutines.Dispatchers.Main) {
+                        heroWatchlistJob?.cancel()
+                        heroWatchlistJob = viewModelScope.launch {
                             watchlistRepository.isInWatchlist(hero.url).collectLatest { inWatchlist ->
                                 _isHeroInWatchlist.value = inWatchlist
                             }
@@ -92,7 +94,7 @@ class MoviesViewModel @Inject constructor(
                         val movieCategories = dbCategories.filter { 
                             !it.id.contains("tvshows") && !it.id.contains("Series", ignoreCase = true) 
                         }
-                        val selectedCategories = movieCategories.shuffled().take(7)
+                        val selectedCategories = movieCategories.sortedBy { it.name }
                         
                         selectedCategories.forEach { category ->
                             repository.getLatestMovies(category.id).onSuccess { moviesInCat ->
@@ -111,6 +113,7 @@ class MoviesViewModel @Inject constructor(
                     android.util.Log.e("MoviesViewModel", "Error loading movies data", e)
                 }
             } finally {
+                kotlinx.coroutines.delay(500)
                 _isLoading.value = false
             }
         }

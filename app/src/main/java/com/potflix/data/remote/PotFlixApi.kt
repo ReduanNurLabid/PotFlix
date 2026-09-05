@@ -48,14 +48,14 @@ interface PotFlixApi {
     @GET("3/movie/{movie_id}")
     suspend fun getMovieDetail(
         @Path("movie_id") movieId: Int,
-        @Query("append_to_response") appendToResponse: String = "credits",
+        @Query("append_to_response") appendToResponse: String = "credits,videos",
         @Query("language") language: String = "en-US"
     ): com.potflix.data.remote.TmdbDetailDto
     
     @GET("3/tv/{tv_id}")
     suspend fun getTvDetail(
         @Path("tv_id") tvId: Int,
-        @Query("append_to_response") appendToResponse: String = "credits",
+        @Query("append_to_response") appendToResponse: String = "credits,videos",
         @Query("language") language: String = "en-US"
     ): com.potflix.data.remote.TmdbDetailDto
 }

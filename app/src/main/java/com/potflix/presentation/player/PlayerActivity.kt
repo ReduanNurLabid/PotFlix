@@ -127,7 +127,14 @@ fun VlcVideoPlayer(
     serverPreferences: com.potflix.data.local.preferences.ServerPreferences? = null
 ) {
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
     var subtitleUrl by remember { mutableStateOf<String?>(null) }
+    var selectedSpuTrack by remember { mutableStateOf(-1) }
+    var selectedAudioTrack by remember { mutableStateOf(-1) }
+    var audioTracks by remember { mutableStateOf<List<MediaPlayer.TrackDescription>>(emptyList()) }
+    var spuTracks by remember { mutableStateOf<List<MediaPlayer.TrackDescription>>(emptyList()) }
+    var showAudioMenu by remember { mutableStateOf(false) }
+    var showSpuMenu by remember { mutableStateOf(false) }
     
     var seasons by remember { mutableStateOf<List<com.potflix.domain.model.Season>>(emptyList()) }
     var currentStreamUrl by remember { mutableStateOf(streamUrl) }
@@ -197,7 +204,58 @@ fun VlcVideoPlayer(
         androidx.activity.result.contract.ActivityResultContracts.GetContent()
     ) { uri ->
         if (uri != null) {
-            mediaPlayer.addSlave(org.videolan.libvlc.interfaces.IMedia.Slave.Type.Subtitle, uri, true)
+            coroutineScope.launch(Dispatchers.IO) {
+                try {
+                    val cacheDir = java.io.File(context.cacheDir, "subtitles").apply { mkdirs() }
+                    val originalName = getFileNameFromUri(context, uri) ?: "loaded_subtitle.srt"
+                    val sanitizedName = originalName.replace("[^a-zA-Z0-9._-]".toRegex(), "_")
+                    val localSubFile = java.io.File(cacheDir, "${System.currentTimeMillis()}_$sanitizedName")
+                    
+                    context.contentResolver.openInputStream(uri)?.use { input ->
+                        localSubFile.outputStream().use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+                    
+                    val existingTrackIds = withContext(Dispatchers.Main) {
+                        mediaPlayer.spuTracks?.map { it.id }?.toSet() ?: emptySet()
+                    }
+                    val fileUri = Uri.fromFile(localSubFile)
+                    withContext(Dispatchers.Main) {
+                        val added = mediaPlayer.addSlave(
+                            org.videolan.libvlc.interfaces.IMedia.Slave.Type.Subtitle,
+                            fileUri,
+                            true
+                        )
+                        android.util.Log.d("PlayerActivity", "Added subtitle slave $fileUri: $added")
+                        
+                        var updatedTracks = mediaPlayer.spuTracks?.toList() ?: emptyList()
+                        var attempts = 0
+                        while (attempts < 6) {
+                            kotlinx.coroutines.delay(200)
+                            updatedTracks = mediaPlayer.spuTracks?.toList() ?: emptyList()
+                            val newlyAdded = updatedTracks.find { it.id !in existingTrackIds && it.id != -1 }
+                            if (newlyAdded != null) break
+                            attempts++
+                        }
+                        spuTracks = updatedTracks
+                        val targetTrack = updatedTracks.find { it.id !in existingTrackIds && it.id != -1 }
+                            ?: updatedTracks.lastOrNull { it.id != -1 }
+                        if (targetTrack != null) {
+                            mediaPlayer.spuTrack = targetTrack.id
+                            selectedSpuTrack = targetTrack.id
+                            android.widget.Toast.makeText(context, "Subtitle active: ${targetTrack.name}", android.widget.Toast.LENGTH_SHORT).show()
+                        } else {
+                            android.widget.Toast.makeText(context, "Loaded: $originalName", android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("PlayerActivity", "Failed to load subtitle file", e)
+                    withContext(Dispatchers.Main) {
+                        android.widget.Toast.makeText(context, "Failed to load subtitle: ${e.localizedMessage}", android.widget.Toast.LENGTH_LONG).show()
+                    }
+                }
+            }
         }
     }
 
@@ -247,17 +305,14 @@ fun VlcVideoPlayer(
     
     var resizeMode by remember { mutableStateOf("FIT") }
 
-    var audioTracks by remember { mutableStateOf<List<MediaPlayer.TrackDescription>>(emptyList()) }
-    var spuTracks by remember { mutableStateOf<List<MediaPlayer.TrackDescription>>(emptyList()) }
-    var showAudioMenu by remember { mutableStateOf(false) }
-    var showSpuMenu by remember { mutableStateOf(false) }
-
     DisposableEffect(mediaPlayer) {
         val listener = MediaPlayer.EventListener { event ->
             when (event.type) {
                 MediaPlayer.Event.Playing -> {
                     isPlaying = true
                     isBuffering = false
+                    selectedAudioTrack = mediaPlayer.audioTrack
+                    selectedSpuTrack = mediaPlayer.spuTrack
                     if (!initializedTracks) {
                         val aTracks = mediaPlayer.audioTracks?.toList() ?: emptyList()
                         audioTracks = aTracks
@@ -270,6 +325,7 @@ fun VlcVideoPlayer(
                             val matchedAudio = com.potflix.util.LanguageUtils.findMatchingTrack(aTracks, prefAudio, isSubtitle = false)
                             if (matchedAudio != null && mediaPlayer.audioTrack != matchedAudio.id) {
                                 mediaPlayer.audioTrack = matchedAudio.id
+                                selectedAudioTrack = matchedAudio.id
                             }
                         }
 
@@ -279,18 +335,30 @@ fun VlcVideoPlayer(
                             val disableTrack = sTracks.find { it.id == -1 || it.name.contains("disable", ignoreCase = true) }
                             if (disableTrack != null && mediaPlayer.spuTrack != disableTrack.id) {
                                 mediaPlayer.spuTrack = disableTrack.id
+                                selectedSpuTrack = disableTrack.id
                             } else if (mediaPlayer.spuTrack != -1) {
                                 mediaPlayer.spuTrack = -1
+                                selectedSpuTrack = -1
                             }
                         } else {
                             val matchedSub = com.potflix.util.LanguageUtils.findMatchingTrack(sTracks, prefSub, isSubtitle = true)
                             if (matchedSub != null && mediaPlayer.spuTrack != matchedSub.id) {
                                 mediaPlayer.spuTrack = matchedSub.id
+                                selectedSpuTrack = matchedSub.id
                             }
                         }
                         
                         initializedTracks = true
                     }
+                }
+                MediaPlayer.Event.ESAdded,
+                MediaPlayer.Event.ESDeleted -> {
+                    audioTracks = mediaPlayer.audioTracks?.toList() ?: emptyList()
+                    spuTracks = mediaPlayer.spuTracks?.toList() ?: emptyList()
+                }
+                MediaPlayer.Event.ESSelected -> {
+                    selectedAudioTrack = mediaPlayer.audioTrack
+                    selectedSpuTrack = mediaPlayer.spuTrack
                 }
                 MediaPlayer.Event.Buffering -> isBuffering = event.buffering < 100f
                 MediaPlayer.Event.Paused -> isPlaying = false
@@ -368,7 +436,7 @@ fun VlcVideoPlayer(
                         layout.post {
                             try {
                                 mediaPlayer.detachViews()
-                                mediaPlayer.attachViews(layout, null, false, false)
+                                mediaPlayer.attachViews(layout, null, true, false)
                             } catch (e: Exception) {
                                 e.printStackTrace()
                             }
@@ -445,13 +513,13 @@ fun VlcVideoPlayer(
             factory = { ctx ->
                 VLCVideoLayout(ctx).apply {
                     vlcLayoutRef = this
-                    mediaPlayer.attachViews(this, null, false, false)
+                    mediaPlayer.attachViews(this, null, true, false)
                     addOnAttachStateChangeListener(object : android.view.View.OnAttachStateChangeListener {
                         override fun onViewAttachedToWindow(v: android.view.View) {
                             post {
                                 try {
                                     mediaPlayer.detachViews()
-                                    mediaPlayer.attachViews(this@apply, null, false, false)
+                                    mediaPlayer.attachViews(this@apply, null, true, false)
                                 } catch (e: Exception) {
                                     e.printStackTrace()
                                 }
@@ -474,7 +542,7 @@ fun VlcVideoPlayer(
                                 post {
                                     try {
                                         mediaPlayer.detachViews()
-                                        mediaPlayer.attachViews(this@apply, null, false, false)
+                                        mediaPlayer.attachViews(this@apply, null, true, false)
                                     } catch (e: Exception) {
                                         e.printStackTrace()
                                     }
@@ -1172,11 +1240,15 @@ fun VlcVideoPlayer(
                             // Subtitles
                             Box {
                                 IconButton(
-                                    onClick = { showSpuMenu = true },
+                                    onClick = {
+                                        spuTracks = mediaPlayer.spuTracks?.toList() ?: emptyList()
+                                        selectedSpuTrack = mediaPlayer.spuTrack
+                                        showSpuMenu = true
+                                    },
                                     modifier = Modifier
                                         .size(48.dp)
                                         .background(
-                                            if (showSpuMenu || (spuTracks.isNotEmpty() && mediaPlayer.spuTrack != -1)) MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
+                                            if (showSpuMenu || selectedSpuTrack != -1) MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
                                             else Color.White.copy(alpha = 0.12f),
                                             CircleShape
                                         )
@@ -1184,7 +1256,7 @@ fun VlcVideoPlayer(
                                     Icon(
                                         imageVector = Icons.Filled.Subtitles,
                                         contentDescription = "Subtitles",
-                                        tint = Color.White,
+                                        tint = if (selectedSpuTrack != -1) MaterialTheme.colorScheme.primary else Color.White,
                                         modifier = Modifier.size(24.dp)
                                     )
                                 }
@@ -1193,19 +1265,41 @@ fun VlcVideoPlayer(
                                     onDismissRequest = { showSpuMenu = false },
                                     modifier = Modifier.background(Color(0xFF1E1E28), RoundedCornerShape(12.dp))
                                 ) {
-                                    if (spuTracks.isNotEmpty()) {
-                                        spuTracks.forEach { track ->
+                                    DropdownMenuItem(
+                                        text = {
+                                            Text(
+                                                "Disable Subtitles",
+                                                color = if (selectedSpuTrack == -1) MaterialTheme.colorScheme.primary else Color.White,
+                                                fontWeight = if (selectedSpuTrack == -1) FontWeight.Bold else FontWeight.Normal
+                                            )
+                                        },
+                                        onClick = {
+                                            mediaPlayer.spuTrack = -1
+                                            selectedSpuTrack = -1
+                                            showSpuMenu = false
+                                        }
+                                    )
+                                    val validTracks = spuTracks.filter { it.id != -1 && !it.name.contains("disable", ignoreCase = true) }
+                                    if (validTracks.isNotEmpty()) {
+                                        validTracks.forEach { track ->
                                             DropdownMenuItem(
-                                                text = { Text(track.name, color = if (mediaPlayer.spuTrack == track.id) MaterialTheme.colorScheme.primary else Color.White) },
+                                                text = {
+                                                    Text(
+                                                        track.name,
+                                                        color = if (selectedSpuTrack == track.id) MaterialTheme.colorScheme.primary else Color.White,
+                                                        fontWeight = if (selectedSpuTrack == track.id) FontWeight.Bold else FontWeight.Normal
+                                                    )
+                                                },
                                                 onClick = {
                                                     mediaPlayer.spuTrack = track.id
+                                                    selectedSpuTrack = track.id
                                                     showSpuMenu = false
                                                 }
                                             )
                                         }
                                     }
                                     DropdownMenuItem(
-                                        text = { Text("Load Local File...", color = Color.White) },
+                                        text = { Text("Load Local Subtitle File...", color = Color.White) },
                                         onClick = {
                                             showSpuMenu = false
                                             subtitleLauncher.launch("*/*")
@@ -1218,7 +1312,11 @@ fun VlcVideoPlayer(
                             if (audioTracks.isNotEmpty()) {
                                 Box {
                                     IconButton(
-                                        onClick = { showAudioMenu = true },
+                                        onClick = {
+                                            audioTracks = mediaPlayer.audioTracks?.toList() ?: emptyList()
+                                            selectedAudioTrack = mediaPlayer.audioTrack
+                                            showAudioMenu = true
+                                        },
                                         modifier = Modifier
                                             .size(48.dp)
                                             .background(
@@ -1241,9 +1339,16 @@ fun VlcVideoPlayer(
                                     ) {
                                         audioTracks.forEach { track ->
                                             DropdownMenuItem(
-                                                text = { Text(track.name, color = if (mediaPlayer.audioTrack == track.id) MaterialTheme.colorScheme.primary else Color.White) },
+                                                text = {
+                                                    Text(
+                                                        track.name,
+                                                        color = if (selectedAudioTrack == track.id) MaterialTheme.colorScheme.primary else Color.White,
+                                                        fontWeight = if (selectedAudioTrack == track.id) FontWeight.Bold else FontWeight.Normal
+                                                    )
+                                                },
                                                 onClick = {
                                                     mediaPlayer.audioTrack = track.id
+                                                    selectedAudioTrack = track.id
                                                     showAudioMenu = false
                                                 }
                                             )
@@ -1583,5 +1688,23 @@ fun PlayerControlChip(
             )
         }
     }
+}
+
+private fun getFileNameFromUri(context: android.content.Context, uri: Uri): String? {
+    if (uri.scheme == "content") {
+        try {
+            context.contentResolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val nameIndex = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                    if (nameIndex != -1) {
+                        return cursor.getString(nameIndex)
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+    return uri.lastPathSegment?.substringAfterLast('/')
 }
 

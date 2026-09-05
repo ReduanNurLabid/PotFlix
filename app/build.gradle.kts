@@ -28,8 +28,8 @@ android {
         applicationId = "com.potflix"
         minSdk = 24
         targetSdk = 35
-        versionCode = 214
-        versionName = "2.1.4"
+        versionCode = 300
+        versionName = "3.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {

@@ -7,7 +7,7 @@
 ### Stream Movies & TV Shows. Any BDIX Network, Anytime.
 **Blazing-fast streaming, seamless server switching, and built-in offline downloads on Android — for BDIX connected networks only.**
 
-[![Latest Version](https://img.shields.io/badge/Version-v2.1.4-E50914?style=for-the-badge)](https://github.com/ReduanNurLabid/PotFlix/releases/latest)
+[![Latest Version](https://img.shields.io/badge/Version-v3.0.0-E50914?style=for-the-badge)](https://github.com/ReduanNurLabid/PotFlix/releases/latest)
 [![Android](https://img.shields.io/badge/Platform-Android%207.0%2B-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://github.com/ReduanNurLabid/PotFlix/releases/latest)
 [![License](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)](LICENSE)
 

@@ -42,8 +42,15 @@ fun OnboardingScreen(
 
     LaunchedEffect(onboardingComplete) {
         if (onboardingComplete) {
-            navController.navigate(Screen.Home.route) {
-                popUpTo("onboarding") { inclusive = true }
+            val isUserLoggedIn = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.let { !it.isAnonymous } == true
+            if (isUserLoggedIn) {
+                navController.navigate(Screen.Home.route) {
+                    popUpTo("onboarding") { inclusive = true }
+                }
+            } else {
+                navController.navigate(Screen.Login.route) {
+                    popUpTo("onboarding") { inclusive = true }
+                }
             }
         }
     }
