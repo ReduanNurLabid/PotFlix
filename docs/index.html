@@ -587,7 +587,7 @@
     </div>
 
     <br/>
-    <div class="badge">PotFlix v2.1.2 • BDIX Connected Networks Only</div>
+    <div class="badge" id="hero-badge">PotFlix v2.1.4 • BDIX Connected Networks Only</div>
 
     <h1>Stream Movies & TV Shows.<br>Any BDIX Network, Anytime.</h1>
     <p class="subtitle">
@@ -600,7 +600,7 @@
         <span style="font-size: 20px; line-height: 1;">⚠️</span>
         <div style="font-size: 13.5px; line-height: 1.5; color: #e0e0e0;">
           <strong style="color: #ffb74d;">Important Notice for Dhakaflix Users:</strong><br>
-          PotFlix v2.1.2 introduces the high-speed <strong>Nagordola CDN</strong>. If your Wi-Fi network streams via <strong>Dhakaflix</strong>, please continue using <a href="https://github.com/ReduanNurLabid/PotFlix/releases/download/Android.v2.0.0/potflix.v2.1.1.apk" style="color: #ffb74d; font-weight: 700; text-decoration: underline;">PotFlix v2.1.1</a>, as Dhakaflix streaming is not yet tested on v2.1.2.
+          PotFlix features the high-speed <strong>Nagordola CDN</strong>. If your Wi-Fi network streams via <strong>Dhakaflix</strong>, please continue using <a href="https://github.com/ReduanNurLabid/PotFlix/releases/download/Android.v2.0.0/potflix.v2.1.1.apk" style="color: #ffb74d; font-weight: 700; text-decoration: underline;">PotFlix v2.1.1</a>, as Dhakaflix streaming is not yet tested on newer versions.
         </div>
       </div>
     </div>
@@ -614,7 +614,7 @@
       </svg>
       <span id="btn-main-label">Download for Android (APK)</span>
     </a>
-    <div class="sub-note">v2.1.2 • ~51 MB • For Samsung, Xiaomi, Pixel, OnePlus & Modern Phones (ARM64)</div>
+    <div class="sub-note" id="hero-sub-note">v2.1.4 • ~54 MB • For Samsung, Xiaomi, Pixel, OnePlus & Modern Phones (ARM64)</div>
 
     <!-- Other Devices Options -->
     <div class="other-devices">
@@ -625,18 +625,18 @@
           <h4>TV Boxes & Amazon Firestick</h4>
           <p>For Fire TV Stick, Mi Box, and 32-bit Smart TVs (ARMv7)</p>
         </div>
-        <a href="https://github.com/ReduanNurLabid/PotFlix/releases/latest/download/potflix-armeabi-v7a-release.apk" download="potflix-armeabi-v7a-release.apk" onclick="downloadDirect(event, this.href, 'potflix-armeabi-v7a-release.apk')" class="btn-small">
-          Download (47 MB)
+        <a id="btn-download-armv7" href="https://github.com/ReduanNurLabid/PotFlix/releases/latest/download/potflix-armeabi-v7a-release.apk" download="potflix-armeabi-v7a-release.apk" onclick="downloadDirect(event, this.href, 'potflix-armeabi-v7a-release.apk')" class="btn-small">
+          Download (50 MB)
         </a>
       </div>
 
       <div class="device-row">
         <div class="device-info">
-          <h4>Universal Version</h4>
-          <p>Works on all devices if you're not sure which to choose</p>
+          <h4>Universal & PC Emulators</h4>
+          <p>Works on all devices (x86_64 / Universal fallback)</p>
         </div>
-        <a href="https://github.com/ReduanNurLabid/PotFlix/releases/latest/download/potflix-universal-release.apk" download="potflix-universal-release.apk" onclick="downloadDirect(event, this.href, 'potflix-universal-release.apk')" class="btn-small">
-          Download (182 MB)
+        <a id="btn-download-universal" href="https://github.com/ReduanNurLabid/PotFlix/releases/latest/download/potflix-x86_64-release.apk" download="potflix-x86_64-release.apk" onclick="downloadDirect(event, this.href, 'potflix-x86_64-release.apk')" class="btn-small">
+          Download (61 MB)
         </a>
       </div>
     </div>
@@ -849,6 +849,66 @@
       }
     }
 
+    function updateHeroElements(rel) {
+      if (!rel) return;
+
+      const rawTag = rel.tag_name || rel.versionName || rel.name || '';
+      const verMatch = rawTag.match(/\d+\.\d+(\.\d+)?/);
+      const version = verMatch ? verMatch[0] : '2.1.4';
+
+      // Update badge
+      const heroBadge = document.getElementById('hero-badge');
+      if (heroBadge) {
+        heroBadge.textContent = `PotFlix v${version} • BDIX Connected Networks Only`;
+      }
+
+      // Identify assets
+      const assets = rel.assets || [];
+      const arm64Asset = assets.find(a => a.name && (a.name.includes('arm64') || a.name.includes('v8a')));
+      const armv7Asset = assets.find(a => a.name && (a.name.includes('armeabi') || a.name.includes('armv7') || a.name.includes('v7a')));
+      const uniAsset = assets.find(a => a.name && (a.name.includes('x86') || a.name.includes('universal') || (a.name.endsWith('.apk') && a !== arm64Asset && a !== armv7Asset)));
+
+      const arm64Mb = arm64Asset && arm64Asset.size ? Math.round(arm64Asset.size / (1024 * 1024)) : 54;
+      const armv7Mb = armv7Asset && armv7Asset.size ? Math.round(armv7Asset.size / (1024 * 1024)) : 50;
+      const uniMb = uniAsset && uniAsset.size ? Math.round(uniAsset.size / (1024 * 1024)) : 61;
+
+      // Update hero sub-note dynamically
+      const heroSubNote = document.getElementById('hero-sub-note');
+      if (heroSubNote) {
+        heroSubNote.textContent = `v${version} • ~${arm64Mb} MB • For Samsung, Xiaomi, Pixel, OnePlus & Modern Phones (ARM64)`;
+      }
+
+      // Update main download button
+      const mainBtn = document.getElementById('download-main');
+      if (mainBtn && arm64Asset && arm64Asset.browser_download_url) {
+        mainBtn.href = arm64Asset.browser_download_url;
+        mainBtn.setAttribute('download', arm64Asset.name);
+        mainBtn.setAttribute('onclick', `downloadDirect(event, this.href, '${arm64Asset.name}')`);
+      }
+
+      // Update ARMv7 button
+      const armv7Btn = document.getElementById('btn-download-armv7');
+      if (armv7Btn) {
+        armv7Btn.textContent = `Download (${armv7Mb} MB)`;
+        if (armv7Asset && armv7Asset.browser_download_url) {
+          armv7Btn.href = armv7Asset.browser_download_url;
+          armv7Btn.setAttribute('download', armv7Asset.name);
+          armv7Btn.setAttribute('onclick', `downloadDirect(event, this.href, '${armv7Asset.name}')`);
+        }
+      }
+
+      // Update Universal / x86 button
+      const uniBtn = document.getElementById('btn-download-universal');
+      if (uniBtn) {
+        uniBtn.textContent = `Download (${uniMb} MB)`;
+        if (uniAsset && uniAsset.browser_download_url) {
+          uniBtn.href = uniAsset.browser_download_url;
+          uniBtn.setAttribute('download', uniAsset.name);
+          uniBtn.setAttribute('onclick', `downloadDirect(event, this.href, '${uniAsset.name}')`);
+        }
+      }
+    }
+
     /* Dynamic Release Pipeline Fetcher */
     async function loadReleases(isManual = false) {
       const listContainer = document.getElementById('releases-list');
@@ -862,14 +922,36 @@
 
       const fallbackReleases = [
         {
+          tag_name: "Android.v2.1.4",
+          name: "PotFlix v2.1.4",
+          published_at: "2026-09-05T00:00:00Z",
+          body: "Restored TMDB API key fallback, added Custom TMDB API Key setting under Settings > Metadata & TMDB, GPU hardware acceleration, and pull-down refresh.",
+          assets: [
+            { name: "potflix-arm64-v8a-release.apk", size: 54035194, browser_download_url: "https://github.com/ReduanNurLabid/PotFlix/releases/latest/download/potflix-arm64-v8a-release.apk" },
+            { name: "potflix-armeabi-v7a-release.apk", size: 49983896, browser_download_url: "https://github.com/ReduanNurLabid/PotFlix/releases/latest/download/potflix-armeabi-v7a-release.apk" },
+            { name: "potflix-x86_64-release.apk", size: 61019137, browser_download_url: "https://github.com/ReduanNurLabid/PotFlix/releases/latest/download/potflix-x86_64-release.apk" }
+          ]
+        },
+        {
+          tag_name: "Android.v2.1.3",
+          name: "PotFlix v2.1.3",
+          published_at: "2026-09-05T00:00:00Z",
+          body: "GPU Hardware acceleration with MediaCodec, black screen resume fix, pull-down to refresh across screens, and delete from Continue Watching.",
+          assets: [
+            { name: "potflix-arm64-v8a-release.apk", size: 54000000, browser_download_url: "https://github.com/ReduanNurLabid/PotFlix/releases/download/Android.v2.1.3/potflix-arm64-v8a-release.apk" },
+            { name: "potflix-armeabi-v7a-release.apk", size: 49900000, browser_download_url: "https://github.com/ReduanNurLabid/PotFlix/releases/download/Android.v2.1.3/potflix-armeabi-v7a-release.apk" },
+            { name: "potflix-x86_64-release.apk", size: 61000000, browser_download_url: "https://github.com/ReduanNurLabid/PotFlix/releases/download/Android.v2.1.3/potflix-x86_64-release.apk" }
+          ]
+        },
+        {
           tag_name: "Android.v2.1.2",
           name: "PotFlix v2.1.2",
           published_at: "2026-09-05T00:00:00Z",
-          body: "Architecture splits (~51MB ARM64, ~47MB ARMv7), Nagordola CDN streaming, vector logo branding, and player controls. (Notice: Dhakaflix users should stay on v2.1.1).",
+          body: "Architecture splits (~51MB ARM64, ~47MB ARMv7), Nagordola CDN streaming, vector logo branding, and player controls.",
           assets: [
-            { name: "potflix-arm64-v8a-release.apk", size: 53971200, browser_download_url: "https://github.com/ReduanNurLabid/PotFlix/releases/latest/download/potflix-arm64-v8a-release.apk" },
-            { name: "potflix-armeabi-v7a-release.apk", size: 49926400, browser_download_url: "https://github.com/ReduanNurLabid/PotFlix/releases/latest/download/potflix-armeabi-v7a-release.apk" },
-            { name: "potflix-universal-release.apk", size: 191462400, browser_download_url: "https://github.com/ReduanNurLabid/PotFlix/releases/latest/download/potflix-universal-release.apk" }
+            { name: "potflix-arm64-v8a-release.apk", size: 53971200, browser_download_url: "https://github.com/ReduanNurLabid/PotFlix/releases/download/Android.v2.1.2/potflix-arm64-v8a-release.apk" },
+            { name: "potflix-armeabi-v7a-release.apk", size: 49926400, browser_download_url: "https://github.com/ReduanNurLabid/PotFlix/releases/download/Android.v2.1.2/potflix-armeabi-v7a-release.apk" },
+            { name: "potflix-universal-release.apk", size: 191462400, browser_download_url: "https://github.com/ReduanNurLabid/PotFlix/releases/download/Android.v2.1.2/potflix-universal-release.apk" }
           ]
         },
         {
@@ -913,12 +995,41 @@
           }
         }
       } catch (err) {
-        console.warn('Could not fetch dynamic GitHub releases, using fallback cache:', err);
+        console.warn('Could not fetch dynamic GitHub releases, trying update.json fallback:', err);
+      }
+
+      // If GitHub releases API failed or is rate-limited, try update.json
+      if (!releases || releases.length === 0) {
+        try {
+          const uRes = await fetch('https://raw.githubusercontent.com/ReduanNurLabid/PotFlix/android/update.json');
+          if (uRes.ok) {
+            const uData = await uRes.json();
+            if (uData && uData.versionName) {
+              const uRelease = {
+                tag_name: "Android.v" + uData.versionName,
+                name: "PotFlix v" + uData.versionName,
+                published_at: new Date().toISOString(),
+                body: uData.releaseNotes || "Latest version update.",
+                assets: [
+                  { name: "potflix-arm64-v8a-release.apk", size: 54035194, browser_download_url: uData.apkUrlArm64 || uData.apkUrl },
+                  { name: "potflix-armeabi-v7a-release.apk", size: 49983896, browser_download_url: uData.apkUrlArmV7 },
+                  { name: "potflix-x86_64-release.apk", size: 61019137, browser_download_url: uData.apkUrlUniversal }
+                ]
+              };
+              releases = [uRelease, ...fallbackReleases.slice(1)];
+            }
+          }
+        } catch (err) {
+          console.warn('Could not fetch update.json:', err);
+        }
       }
 
       if (!releases || releases.length === 0) {
         releases = fallbackReleases;
       }
+
+      // Dynamically update the hero badge, sub-note, and download links with latest release
+      updateHeroElements(releases[0]);
 
       // Render release items
       listContainer.innerHTML = '';
