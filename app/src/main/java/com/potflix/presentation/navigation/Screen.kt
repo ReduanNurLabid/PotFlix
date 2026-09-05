@@ -5,7 +5,12 @@ sealed class Screen(val route: String) {
     object Home : Screen("home")
     object Movies : Screen("movies")
     object TvSeries : Screen("tv_series")
-    object Search : Screen("search")
+    object Search : Screen("search") {
+        const val routeWithArgs = "search?query={query}"
+        fun createRoute(query: String = ""): String {
+            return if (query.isNotBlank()) "search?query=${android.net.Uri.encode(query)}" else "search"
+        }
+    }
     object Settings : Screen("settings")
     object Downloads : Screen("downloads")
     object Watchlist : Screen("watchlist")

@@ -100,9 +100,55 @@ class MovieRepositoryImpl @Inject constructor(
 
     override suspend fun searchMovies(query: String): Result<List<Movie>> {
         return try {
-            val results = movieDao.searchMovies(query)
+            val trimmed = query.trim()
+            if (trimmed.isBlank()) return Result.success(emptyList())
+
+            val localResults = movieDao.searchMovies(trimmed).toMutableList()
             val activeServer = serverPreferences.activeServer.value
-            Result.success(results.map { it.toDomainModel(activeServer) })
+
+            // If local title/overview search already found plenty of matches,
+            // return immediately without blocking on external TMDB network calls!
+            // Only query TMDB person if local search found few/no results (< 10)
+            if (trimmed.length >= 3 && localResults.size < 10) {
+                try {
+                    // Single fast network call using pre-packaged known_for (0 extra network calls!)
+                    val personResponse = tmdbApi.searchPerson(trimmed)
+                    val matchedPerson = personResponse.results.firstOrNull {
+                        it.name.contains(trimmed, ignoreCase = true) || trimmed.contains(it.name, ignoreCase = true)
+                    } ?: personResponse.results.firstOrNull()
+
+                    if (matchedPerson != null) {
+                        val creditTmdbIds = mutableListOf<Long>()
+                        val creditTitles = mutableListOf<String>()
+
+                        matchedPerson.known_for.forEach { kf ->
+                            creditTmdbIds.add(kf.id.toLong())
+                            val title = kf.title ?: kf.name
+                            if (!title.isNullOrBlank()) {
+                                creditTitles.add(title)
+                            }
+                        }
+
+                        val distinctIds = creditTmdbIds.distinct()
+                        if (distinctIds.isNotEmpty()) {
+                            val castMatchesById = movieDao.getAllByTmdbIds(distinctIds)
+                            localResults.addAll(castMatchesById)
+                        }
+
+                        val distinctTitles = creditTitles.distinct()
+                        if (distinctTitles.isNotEmpty()) {
+                            val castMatchesByTitle = movieDao.getMoviesByTitles(distinctTitles)
+                            localResults.addAll(castMatchesByTitle)
+                        }
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.w("MovieRepositoryImpl", "Person/Cast search skipped or timed out", e)
+                }
+            }
+
+            // Deduplicate results by local movie ID
+            val distinctResults = localResults.distinctBy { it.movie.id }
+            Result.success(distinctResults.map { it.toDomainModel(activeServer) })
         } catch (e: Exception) {
             android.util.Log.e("MovieRepositoryImpl", "Error searching movies", e)
             Result.failure(e)
@@ -110,73 +156,158 @@ class MovieRepositoryImpl @Inject constructor(
     }
 
     override suspend fun getMovieDetails(movie: Movie): Result<Movie> {
-        if (movie.tmdbId == null) return Result.success(movie)
+        var currentMovie = movie
+        try {
+            val dbMovie = movieDao.getMovieByTitle(movie.title) ?: movieDao.getMovieByUrlOrTitle(movie.url, movie.title)
+            if (dbMovie != null) {
+                val activeServer = serverPreferences.activeServer.value
+                val domain = dbMovie.toDomainModel(activeServer)
+                currentMovie = currentMovie.copy(
+                    title = if (domain.title.isNotBlank()) domain.title else currentMovie.title,
+                    tmdbId = domain.tmdbId ?: currentMovie.tmdbId,
+                    poster = domain.poster ?: currentMovie.poster,
+                    backdrop = domain.backdrop ?: currentMovie.backdrop,
+                    overview = domain.overview ?: currentMovie.overview,
+                    rating = domain.rating ?: currentMovie.rating,
+                    year = if ((domain.year ?: 0) > 0) domain.year else currentMovie.year
+                )
+            }
+        } catch (e: Exception) {
+            android.util.Log.w("MovieRepositoryImpl", "Could not check local DB for updated movie details", e)
+        }
+
+        var tmdbId = currentMovie.tmdbId
+        if (tmdbId == null) {
+            try {
+                // Auto-resolve TMDB ID if not present in Room
+                val cleanTitle = currentMovie.title
+                    .replace(Regex("""\b(19\d\d|20\d\d)\b.*"""), "")
+                    .replace(Regex("""\b(480p|720p|1080p|2160p|4k|bluray|web-dl|x264|x265|hevc)\b.*""", RegexOption.IGNORE_CASE), "")
+                    .replace(Regex("""[._\-]"""), " ")
+                    .trim()
+                
+                if (cleanTitle.isNotBlank()) {
+                    val searchResults = if (currentMovie.type == "tv") {
+                        api.searchTv(query = cleanTitle)
+                    } else {
+                        api.searchMovie(query = cleanTitle)
+                    }
+                    val match = searchResults.results.firstOrNull()
+                    if (match != null) {
+                        tmdbId = match.id
+                        currentMovie = currentMovie.copy(
+                            tmdbId = match.id,
+                            poster = currentMovie.poster ?: match.posterPath?.let { "https://image.tmdb.org/t/p/w500$it" },
+                            backdrop = currentMovie.backdrop ?: match.backdropPath?.let { "https://image.tmdb.org/t/p/w1280$it" },
+                            overview = currentMovie.overview ?: match.overview,
+                            rating = currentMovie.rating ?: match.voteAverage
+                        )
+                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.w("MovieRepositoryImpl", "Auto-search TMDB failed for ${currentMovie.title}", e)
+            }
+        }
+
+        if (tmdbId == null) return Result.success(currentMovie)
         
         return try {
-            val tmdbDetails = if (movie.type == "tv") {
-                api.getTvDetail(movie.tmdbId)
+            val tmdbDetails = if (currentMovie.type == "tv") {
+                api.getTvDetail(tmdbId, appendToResponse = "credits,videos")
             } else {
-                api.getMovieDetail(movie.tmdbId)
+                api.getMovieDetail(tmdbId, appendToResponse = "credits,videos")
             }
             
-            val updatedMovie = movie.copy(
+            var trailerKey: String? = tmdbDetails.videos?.results?.firstOrNull { 
+                it.site.equals("YouTube", ignoreCase = true) && it.type.equals("Trailer", ignoreCase = true) 
+            }?.key ?: tmdbDetails.videos?.results?.firstOrNull {
+                it.site.equals("YouTube", ignoreCase = true) && (it.type.equals("Teaser", ignoreCase = true) || it.type.equals("Clip", ignoreCase = true))
+            }?.key ?: tmdbDetails.videos?.results?.firstOrNull {
+                it.site.equals("YouTube", ignoreCase = true)
+            }?.key
+
+            if (trailerKey == null) {
+                try {
+                    val directVideos = if (currentMovie.type == "tv") {
+                        api.getTvVideos(tmdbId)
+                    } else {
+                        api.getMovieVideos(tmdbId)
+                    }
+                    trailerKey = directVideos.results.firstOrNull {
+                        it.site.equals("YouTube", ignoreCase = true) && it.type.equals("Trailer", ignoreCase = true)
+                    }?.key ?: directVideos.results.firstOrNull {
+                        it.site.equals("YouTube", ignoreCase = true)
+                    }?.key
+                } catch (e: Exception) {
+                    android.util.Log.w("MovieRepositoryImpl", "Direct videos query failed for tmdbId $tmdbId", e)
+                }
+            }
+
+            val updatedMovie = currentMovie.copy(
+                tmdbId = tmdbId,
                 runtime = tmdbDetails.runtime ?: tmdbDetails.episode_run_time?.firstOrNull(),
-                language = tmdbDetails.original_language ?: movie.language,
+                language = tmdbDetails.original_language ?: currentMovie.language,
                 cast = tmdbDetails.credits?.cast?.map { it.name }?.take(10),
-                rating = tmdbDetails.vote_average ?: movie.rating
+                rating = tmdbDetails.vote_average ?: currentMovie.rating,
+                backdrop = currentMovie.backdrop ?: tmdbDetails.backdrop_path?.let { "https://image.tmdb.org/t/p/w1280$it" },
+                poster = currentMovie.poster ?: tmdbDetails.poster_path?.let { "https://image.tmdb.org/t/p/w500$it" },
+                overview = if (!currentMovie.overview.isNullOrBlank()) currentMovie.overview else tmdbDetails.overview,
+                trailerKey = trailerKey ?: currentMovie.trailerKey
             )
             Result.success(updatedMovie)
         } catch (e: Exception) {
             android.util.Log.e("MovieRepositoryImpl", "Failed to fetch tmdb details", e)
-            Result.success(movie)
+            Result.success(currentMovie)
         }
     }
 
     override suspend fun getSeriesEpisodes(url: String): Result<List<Season>> {
-        // For TV Shows, we still need to scrape the FTP because TV shows are not fully modeled in movies.db yet
         return try {
             val activeServer = serverPreferences.activeServer.value
             val scraper = if (activeServer.type == com.potflix.data.local.preferences.ServerType.ALIST) aListScraper else PotFlixScraper
             
-            // Map the url to CDN url if it's ALIST
             val mappedUrl = if (activeServer.type == com.potflix.data.local.preferences.ServerType.ALIST) {
                 com.potflix.util.ServerUrlMapper.mapUrl(url, activeServer)
             } else url
 
             val entries = scraper.scrapeDirectory(mappedUrl)
-            val seasons = mutableListOf<Season>()
-            
-            val seasonFolders = entries.filter { it.isDirectory && Regex("(season|s)\\s*\\d+", RegexOption.IGNORE_CASE).containsMatchIn(it.name) }
-                .sortedBy { Regex("\\d+").find(it.name)?.value?.toIntOrNull() ?: 0 }
-                
+            val seasonFolderRegex = Regex("""(?:season|s)[.\s_-]*(\d{1,2})""", RegexOption.IGNORE_CASE)
+            val seasonFolders = entries.filter { it.isDirectory && seasonFolderRegex.containsMatchIn(it.name) }
+                .sortedBy { seasonFolderRegex.find(it.name)?.groupValues?.get(1)?.toIntOrNull() ?: 0 }
+
+            val allEpisodes = mutableListOf<Episode>()
+
             if (seasonFolders.isNotEmpty()) {
                 for (sf in seasonFolders) {
+                    val sfSeasonNum = seasonFolderRegex.find(sf.name)?.groupValues?.get(1)?.toIntOrNull()
+                        ?: Regex("\\d+").find(sf.name)?.value?.toIntOrNull() ?: 1
                     try {
                         val seasonEntries = scraper.scrapeDirectory(sf.url)
-                        val episodes = seasonEntries.filter { it.isVideo }.map { e ->
-                            val epMatch = Regex("S(\\d{1,2})E(\\d{1,2})", RegexOption.IGNORE_CASE).find(e.name)
-                                ?: Regex("E(\\d{1,2})", RegexOption.IGNORE_CASE).find(e.name)
-                                
+                        val videoEntries = seasonEntries.filter { it.isVideo }
+                        for (e in videoEntries) {
+                            val sMatch = Regex("""S(\d{1,2})[.\s_-]*E(\d{1,2})""", RegexOption.IGNORE_CASE).find(e.name)
+                                ?: Regex("""(?:season|s)[.\s_-]*(\d{1,2})[.\s_-]*(?:episode|ep|e)[.\s_-]*(\d{1,2})""", RegexOption.IGNORE_CASE).find(e.name)
+                            val epOnlyMatch = Regex("""(?:episode|ep|e)[.\s_-]*(\d{1,3})""", RegexOption.IGNORE_CASE).find(e.name)
+
+                            val epSeason = sMatch?.groupValues?.get(1)?.toIntOrNull() ?: sfSeasonNum
+                            val epNumber = sMatch?.groupValues?.get(2)?.toIntOrNull()
+                                ?: epOnlyMatch?.groupValues?.get(1)?.toIntOrNull()
+
                             val resolvedEpisodeUrl = if (activeServer.type == com.potflix.data.local.preferences.ServerType.ALIST && e.url.contains(activeServer.baseUrl)) {
                                 e.url.replace(activeServer.baseUrl, activeServer.baseUrl.trimEnd('/') + "/d/")
                             } else e.url
 
-                            Episode(
-                                title = if (epMatch != null) "Episode ${epMatch.groupValues.last().toInt()}" else e.name,
+                            allEpisodes.add(Episode(
+                                title = if (epNumber != null) "Episode $epNumber" else e.name,
                                 url = resolvedEpisodeUrl,
-                                season = Regex("\\d+").find(sf.name)?.value?.toIntOrNull(),
-                                number = epMatch?.groupValues?.last()?.toIntOrNull()
-                            )
-                        }.sortedBy { it.number ?: 0 }
-                        
-                        seasons.add(Season(
-                            name = sf.name,
-                            number = Regex("\\d+").find(sf.name)?.value?.toIntOrNull() ?: 0,
-                            episodes = episodes
-                        ))
+                                season = epSeason,
+                                number = epNumber
+                            ))
+                        }
                     } catch (e: Exception) { e.printStackTrace() }
                 }
             } else {
+                // No explicit "season" folders. Could be direct video files or multi-season pack folders (like S01-S04, Complete, etc.)
                 val directVideos = entries.filter { it.isVideo }
                 val videosToUse = if (directVideos.isNotEmpty()) directVideos else {
                     val subDirs = entries.filter { it.isDirectory }
@@ -190,30 +321,38 @@ class MovieRepositoryImpl @Inject constructor(
                     allVideos
                 }
 
-                if (videosToUse.isNotEmpty()) {
-                    val episodes = videosToUse.map { e ->
-                        val epMatch = Regex("E(\\d{1,3})", RegexOption.IGNORE_CASE).find(e.name)
-                            ?: Regex("Episode\\s*(\\d{1,3})", RegexOption.IGNORE_CASE).find(e.name)
-                            
-                        val resolvedEpisodeUrl = if (activeServer.type == com.potflix.data.local.preferences.ServerType.ALIST && e.url.contains(activeServer.baseUrl)) {
-                            e.url.replace(activeServer.baseUrl, activeServer.baseUrl.trimEnd('/') + "/d/")
-                        } else e.url
+                for (e in videosToUse) {
+                    val sMatch = Regex("""S(\d{1,2})[.\s_-]*E(\d{1,2})""", RegexOption.IGNORE_CASE).find(e.name)
+                        ?: Regex("""(?:season|s)[.\s_-]*(\d{1,2})[.\s_-]*(?:episode|ep|e)[.\s_-]*(\d{1,2})""", RegexOption.IGNORE_CASE).find(e.name)
+                    val epOnlyMatch = Regex("""(?:episode|ep|e)[.\s_-]*(\d{1,3})""", RegexOption.IGNORE_CASE).find(e.name)
 
-                        Episode(
-                            title = if (epMatch != null) "Episode ${epMatch.groupValues.last().toInt()}" else e.name,
-                            url = resolvedEpisodeUrl,
-                            season = 1,
-                            number = epMatch?.groupValues?.last()?.toIntOrNull() ?: 0
-                        )
-                    }.sortedBy { it.number ?: 0 }
+                    val epSeason = sMatch?.groupValues?.get(1)?.toIntOrNull() ?: 1
+                    val epNumber = sMatch?.groupValues?.get(2)?.toIntOrNull()
+                        ?: epOnlyMatch?.groupValues?.get(1)?.toIntOrNull()
 
-                    seasons.add(Season(
-                        name = "Season 1",
-                        number = 1,
-                        episodes = episodes
+                    val resolvedEpisodeUrl = if (activeServer.type == com.potflix.data.local.preferences.ServerType.ALIST && e.url.contains(activeServer.baseUrl)) {
+                        e.url.replace(activeServer.baseUrl, activeServer.baseUrl.trimEnd('/') + "/d/")
+                    } else e.url
+
+                    allEpisodes.add(Episode(
+                        title = if (epNumber != null) "Episode $epNumber" else e.name,
+                        url = resolvedEpisodeUrl,
+                        season = epSeason,
+                        number = epNumber
                     ))
                 }
             }
+
+            val seasons = mutableListOf<Season>()
+            val groupedBySeason = allEpisodes.groupBy { it.season ?: 1 }
+            for ((seasonNum, eps) in groupedBySeason.toSortedMap()) {
+                seasons.add(Season(
+                    name = "Season $seasonNum",
+                    number = seasonNum,
+                    episodes = eps.sortedBy { it.number ?: 0 }
+                ))
+            }
+
             Result.success(seasons)
         } catch (e: Exception) {
             Result.failure(e)
@@ -281,9 +420,59 @@ class MovieRepositoryImpl @Inject constructor(
     }
 
     override suspend fun getMovieStreamUrl(folderUrl: String): Result<String> {
-        // If it's a direct file URL, just return it.
-        // Or if it's already a quality URL from videos list, just use it.
-        return Result.success(folderUrl)
+        val isDirectVideo = folderUrl.endsWith(".mkv", true) || 
+                            folderUrl.endsWith(".mp4", true) || 
+                            folderUrl.endsWith(".avi", true) || 
+                            folderUrl.endsWith(".webm", true) ||
+                            folderUrl.endsWith(".ts", true)
+        if (isDirectVideo) {
+            return Result.success(folderUrl)
+        }
+
+        return try {
+            val activeServer = serverPreferences.activeServer.value
+            val scraper = if (activeServer.type == com.potflix.data.local.preferences.ServerType.ALIST) aListScraper else PotFlixScraper
+            val mappedUrl = if (activeServer.type == com.potflix.data.local.preferences.ServerType.ALIST) {
+                com.potflix.util.ServerUrlMapper.mapUrl(folderUrl, activeServer)
+            } else folderUrl
+
+            val entries = scraper.scrapeDirectory(mappedUrl)
+            val videos = entries.filter { it.isVideo }
+            val getQualityScore: (com.potflix.data.remote.ScrapedEntry) -> Int = { entry ->
+                when (entry.quality?.lowercase()) {
+                    "4k", "2160p" -> 4
+                    "1080p" -> 3
+                    "720p" -> 2
+                    "480p" -> 1
+                    else -> 0
+                }
+            }
+            if (videos.isNotEmpty()) {
+                val best = videos.maxByOrNull(getQualityScore) ?: videos.first()
+                val resolvedUrl = if (activeServer.type == com.potflix.data.local.preferences.ServerType.ALIST && best.url.contains(activeServer.baseUrl)) {
+                    best.url.replace(activeServer.baseUrl, activeServer.baseUrl.trimEnd('/') + "/d/")
+                } else best.url
+                Result.success(resolvedUrl)
+            } else {
+                val subDirs = entries.filter { it.isDirectory }
+                for (sub in subDirs) {
+                    try {
+                        val subEntries = scraper.scrapeDirectory(sub.url)
+                        val subVideos = subEntries.filter { it.isVideo }
+                        if (subVideos.isNotEmpty()) {
+                            val best = subVideos.maxByOrNull(getQualityScore) ?: subVideos.first()
+                            val resolvedUrl = if (activeServer.type == com.potflix.data.local.preferences.ServerType.ALIST && best.url.contains(activeServer.baseUrl)) {
+                                best.url.replace(activeServer.baseUrl, activeServer.baseUrl.trimEnd('/') + "/d/")
+                            } else best.url
+                            return Result.success(resolvedUrl)
+                        }
+                    } catch (e: Exception) {}
+                }
+                Result.failure(Exception("No video stream found in folder"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 
     override suspend fun getTmdbSeasonDetails(tvId: Int, seasonNumber: Int): Result<com.potflix.data.remote.TmdbSeasonResponse> {
@@ -394,6 +583,81 @@ class MovieRepositoryImpl @Inject constructor(
             val watchedSet = prefs.getStringSet("watched_streams", mutableSetOf())?.toMutableSet() ?: mutableSetOf()
             watchedSet.add(streamUrl)
             prefs.edit().putStringSet("watched_streams", watchedSet).apply()
+        }
+    }
+
+    override suspend fun removeFromWatchHistory(movieUrl: String) {
+        val currentHistory = _watchHistory.value.toMutableList()
+        val index = currentHistory.indexOfFirst { it.url == movieUrl }
+        if (index != -1) {
+            currentHistory.removeAt(index)
+            _watchHistory.value = currentHistory
+            prefs.edit().putString("history", gson.toJson(currentHistory)).apply()
+            firebaseSyncManager.syncWatchHistory(currentHistory)
+        }
+    }
+
+    override suspend fun searchTmdb(query: String, type: String): Result<List<com.potflix.data.remote.TmdbMovieDto>> {
+        return try {
+            val response = if (type.equals("tv", ignoreCase = true)) {
+                tmdbApi.searchTv(query = query)
+            } else {
+                tmdbApi.searchMovie(query = query)
+            }
+            Result.success(response.results)
+        } catch (e: Exception) {
+            android.util.Log.e("MovieRepositoryImpl", "Error searching TMDB", e)
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun getTmdbDetail(tmdbId: Int, type: String): Result<com.potflix.data.remote.TmdbDetailDto> {
+        return try {
+            val details = if (type.equals("tv", ignoreCase = true)) {
+                tmdbApi.getTvDetail(tmdbId)
+            } else {
+                tmdbApi.getMovieDetail(tmdbId)
+            }
+            Result.success(details)
+        } catch (e: Exception) {
+            android.util.Log.e("MovieRepositoryImpl", "Error fetching TMDB detail", e)
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun updateMovieTmdbMatch(
+        originalMovie: Movie,
+        newTmdbId: Long,
+        type: String,
+        newTitle: String,
+        newOverview: String?,
+        newPoster: String?,
+        newBackdrop: String?,
+        newRating: Double?
+    ): Result<Movie> {
+        return try {
+            movieDao.updateMovieTmdbInfo(
+                videoUrl = originalMovie.url,
+                originalTitle = originalMovie.title,
+                newTitle = newTitle,
+                tmdbId = newTmdbId,
+                overview = newOverview,
+                posterUrl = newPoster,
+                rating = newRating
+            )
+            val updated = originalMovie.copy(
+                title = newTitle,
+                tmdbId = newTmdbId.toInt(),
+                type = type,
+                poster = newPoster ?: originalMovie.poster,
+                backdrop = newBackdrop ?: originalMovie.backdrop,
+                overview = newOverview ?: originalMovie.overview,
+                rating = newRating ?: originalMovie.rating
+            )
+            Result.success(updated)
+        } catch (e: Exception) {
+            android.util.Log.e("MovieRepositoryImpl", "Error updating movie TMDB match", e)
+            Result.failure(e)
         }
     }
 }

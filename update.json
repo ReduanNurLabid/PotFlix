@@ -1,9 +1,9 @@
 {
-  "versionCode": 212,
-  "versionName": "2.1.2",
+  "versionCode": 300,
+  "versionName": "3.0.0",
   "apkUrl": "https://github.com/ReduanNurLabid/PotFlix/releases/latest/download/potflix-arm64-v8a-release.apk",
   "apkUrlArm64": "https://github.com/ReduanNurLabid/PotFlix/releases/latest/download/potflix-arm64-v8a-release.apk",
   "apkUrlArmV7": "https://github.com/ReduanNurLabid/PotFlix/releases/latest/download/potflix-armeabi-v7a-release.apk",
-  "apkUrlUniversal": "https://github.com/ReduanNurLabid/PotFlix/releases/latest/download/potflix-universal-release.apk",
-  "releaseNotes": "PotFlix v2.1.2 introduces Nagordola CDN with 70%+ smaller split APKs.\n\n⚠️ Notice for Dhakaflix Users: If your Wi-Fi relies on Dhakaflix, please continue using v2.1.1 as Dhakaflix streaming is not yet tested on v2.1.2."
+  "apkUrlUniversal": "https://github.com/ReduanNurLabid/PotFlix/releases/latest/download/potflix-x86_64-release.apk",
+  "releaseNotes": "PotFlix v3.0.0:\n• Complete Redesign: Modern glassmorphic Settings screen with categorized controls and Telegram community chat (https://t.me/PotFlixx)\n• Redesigned TMDB metadata modal and matching skeleton loading effects\n• Subtitle Player Fix: Full local .srt/.vtt file loading and dynamic subtitle overlay rendering\n• Authentication & Guest Mode: Onboarding sign-in prompt, one-tap Guest Mode, and Forgot Password recovery\n• Smart Network Detection: Clear Wi-Fi server reachability guidance and seamless Offline playback\n• Crash Fixes & Optimization: Fixed series/movies scrolling crash and enhanced 4K MediaCodec streaming"
 }

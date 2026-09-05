@@ -22,7 +22,11 @@ class FirebaseSyncManager @Inject constructor() {
                 auth.signInAnonymously().await()
                 Log.d("FirebaseSyncManager", "Signed in anonymously: ${auth.currentUser?.uid}")
             } catch (e: Exception) {
-                Log.e("FirebaseSyncManager", "Anonymous auth failed", e)
+                if (e.message?.contains("restricted to administrators", ignoreCase = true) == true) {
+                    Log.w("FirebaseSyncManager", "Anonymous auth is disabled in Firebase Console. Enable it in Firebase Console > Authentication > Sign-in method if anonymous sync is desired.")
+                } else {
+                    Log.w("FirebaseSyncManager", "Anonymous auth not available: ${e.localizedMessage}")
+                }
             }
         }
     }
@@ -45,6 +49,29 @@ class FirebaseSyncManager @Inject constructor() {
     suspend fun login(email: String, password: String): Result<Unit> {
         return try {
             auth.signInWithEmailAndPassword(email, password).await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    val isUserLoggedIn: Boolean
+        get() = auth.currentUser?.let { !it.isAnonymous } == true
+
+    suspend fun sendPasswordResetEmail(email: String): Result<Unit> {
+        return try {
+            auth.sendPasswordResetEmail(email.trim()).await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun loginAsGuest(): Result<Unit> {
+        return try {
+            if (auth.currentUser == null) {
+                initAuth()
+            }
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
@@ -108,5 +135,37 @@ class FirebaseSyncManager @Inject constructor() {
         firestore.collection("users").document(uid).collection("data").document("watchlist")
             .set(data)
             .addOnFailureListener { e -> Log.e("FirebaseSyncManager", "Failed to sync watchlist", e) }
+    }
+
+    fun suggestTmdbCorrection(
+        originalTitle: String,
+        url: String,
+        correctedTmdbId: Long,
+        correctedTitle: String,
+        type: String
+    ) {
+        val uid = getUserId() ?: "anonymous"
+        val docId = try {
+            java.security.MessageDigest.getInstance("MD5")
+                .digest(url.toByteArray())
+                .joinToString("") { "%02x".format(it) }
+        } catch (e: Exception) {
+            url.hashCode().toString()
+        }
+
+        val data = mapOf(
+            "url" to url,
+            "originalTitle" to originalTitle,
+            "suggestedTmdbId" to correctedTmdbId,
+            "suggestedTitle" to correctedTitle,
+            "type" to type,
+            "submittedBy" to uid,
+            "timestamp" to com.google.firebase.Timestamp.now()
+        )
+
+        firestore.collection("community_corrections").document(docId)
+            .set(data, SetOptions.merge())
+            .addOnSuccessListener { Log.d("FirebaseSyncManager", "Community TMDB correction submitted successfully") }
+            .addOnFailureListener { e -> Log.e("FirebaseSyncManager", "Failed to submit TMDB correction", e) }
     }
 }

@@ -18,16 +18,26 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideOkHttpClient(): OkHttpClient {
+    fun provideOkHttpClient(serverPreferences: com.potflix.data.local.preferences.ServerPreferences): OkHttpClient {
         return OkHttpClient.Builder()
             .addInterceptor { chain ->
                 val original = chain.request()
                 val originalHttpUrl = original.url
-                val url = originalHttpUrl.newBuilder()
-                    .addQueryParameter("api_key", com.potflix.BuildConfig.TMDB_API_KEY)
-                    .build()
-                val requestBuilder = original.newBuilder().url(url)
-                chain.proceed(requestBuilder.build())
+                if (originalHttpUrl.host.contains("themoviedb.org")) {
+                    val key = serverPreferences.getEffectiveTmdbApiKey()
+                    val requestBuilder = original.newBuilder()
+                    if (key.startsWith("eyJ") || key.length > 50) {
+                        requestBuilder.addHeader("Authorization", "Bearer $key")
+                        chain.proceed(requestBuilder.build())
+                    } else {
+                        val url = originalHttpUrl.newBuilder()
+                            .addQueryParameter("api_key", key)
+                            .build()
+                        chain.proceed(requestBuilder.url(url).build())
+                    }
+                } else {
+                    chain.proceed(original)
+                }
             }
             .addInterceptor(HttpLoggingInterceptor().apply {
                 level = HttpLoggingInterceptor.Level.BODY

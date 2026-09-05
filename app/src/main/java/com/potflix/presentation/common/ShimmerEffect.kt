@@ -2,43 +2,54 @@ package com.potflix.presentation.common
 
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-
-import androidx.compose.ui.composed
-
-fun Modifier.shimmerEffect(): Modifier = composed {
-    this.then(Modifier.background(shimmerBrush()))
-}
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 
 @Composable
-fun shimmerBrush(showShimmer: Boolean = true): Brush {
+fun shimmerBrush(
+    targetValue: Float = 1600f,
+    showShimmer: Boolean = true
+): Brush {
     if (!showShimmer) return Brush.linearGradient(listOf(Color.Transparent, Color.Transparent))
-    
+
     val shimmerColors = listOf(
-        Color.DarkGray.copy(alpha = 0.6f),
-        Color.DarkGray.copy(alpha = 0.2f),
-        Color.DarkGray.copy(alpha = 0.6f),
+        Color(0xFF161616),
+        Color(0xFF262626),
+        Color(0xFF383838),
+        Color(0xFF262626),
+        Color(0xFF161616),
     )
 
-    val transition = rememberInfiniteTransition(label = "")
+    val transition = rememberInfiniteTransition(label = "ShimmerTransition")
     val translateAnimation = transition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1000f,
+        initialValue = -500f,
+        targetValue = targetValue,
         animationSpec = infiniteRepeatable(
-            animation = tween(1000, easing = FastOutSlowInEasing),
+            animation = tween(durationMillis = 1350, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
-        label = ""
+        label = "ShimmerTranslate"
     )
+
     return Brush.linearGradient(
         colors = shimmerColors,
-        start = Offset.Zero,
-        end = Offset(x = translateAnimation.value, y = translateAnimation.value)
+        start = Offset(x = translateAnimation.value - 450f, y = 0f),
+        end = Offset(x = translateAnimation.value, y = 120f)
     )
 }
+
+fun Modifier.shimmerEffect(shape: Shape? = null): Modifier = composed {
+    val brush = shimmerBrush()
+    val base = if (shape != null) this.clip(shape) else this
+    base.background(brush)
+}
+

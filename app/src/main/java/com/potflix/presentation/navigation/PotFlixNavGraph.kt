@@ -52,6 +52,20 @@ fun PotFlixNavGraph(
             com.potflix.presentation.settings.SettingsScreen(navController = navController)
         }
         
+        composable(
+            route = Screen.Search.routeWithArgs,
+            arguments = listOf(
+                navArgument("query") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                }
+            )
+        ) { backStackEntry ->
+            val initialQuery = backStackEntry.arguments?.getString("query")
+            SearchScreen(navController = navController, initialQuery = initialQuery)
+        }
+        
         composable(route = Screen.Search.route) {
             SearchScreen(navController = navController)
         }

@@ -29,6 +29,7 @@ class DetailViewModel @Inject constructor(
     private val watchlistRepository: WatchlistRepository,
     private val localDownloadDao: com.potflix.data.local.dao.LocalDownloadDao,
     private val downloadHelper: DownloadHelper,
+    private val firebaseSyncManager: com.potflix.data.remote.FirebaseSyncManager,
     savedStateHandle: SavedStateHandle,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
@@ -88,75 +89,152 @@ class DetailViewModel @Inject constructor(
         loadDetails()
     }
 
+    fun reload() {
+        loadDetails()
+    }
+
     private fun loadDetails() {
         _isLoading.value = true
+        _streamError.value = null
         
-        // 1. Immediately fetch play URLs / Episodes to unblock the UI instantly
-        if (initialMovie.type == "tv") {
-            viewModelScope.launch {
-                repository.getSeriesEpisodes(initialMovie.url).onSuccess { rawSeasons ->
-                    _seasons.value = rawSeasons
-                    
-                    val lastUrl = _lastPlayedEpisodeUrl.value
-                    if (lastUrl != null) {
-                        val seasonIdx = rawSeasons.indexOfFirst { s -> s.episodes.any { it.url == lastUrl } }
-                        if (seasonIdx != -1) {
-                            _selectedSeasonIndex.value = seasonIdx
-                        }
-                    }
-                    _isLoading.value = false // We can show the raw episodes immediately
-                }.onFailure { 
-                    _isLoading.value = false
-                }
-            }
-        } else {
-            // It's a movie, load stream URL instantly
-            viewModelScope.launch {
-                repository.getMovieStreamUrl(initialMovie.url).onSuccess { streamUrl ->
-                    _movie.value = _movie.value?.copy(url = streamUrl)
-                    _isLoading.value = false
-                }.onFailure { err ->
-                    _streamError.value = err.message ?: "Unknown error loading stream"
-                    _isLoading.value = false
-                }
-            }
-        }
-
-        // 2. Fetch TMDB metadata slowly in the background
         viewModelScope.launch {
-            repository.getMovieDetails(initialMovie).onSuccess { enrichedMovie ->
-                // Preserve streamUrl if it was already updated by the instant loader
-                val currentStreamUrl = _movie.value?.url ?: enrichedMovie.url
-                _movie.value = enrichedMovie.copy(url = currentStreamUrl)
-                
-                // If it's a TV series, kick off episode enrichment using the newly found tmdbId
-                if (enrichedMovie.type == "tv") {
-                    val tmdbId = enrichedMovie.tmdbId
-                    if (tmdbId != null) {
-                        val enrichedSeasons = _seasons.value.toMutableList()
-                        for ((index, season) in enrichedSeasons.withIndex()) {
-                            val tmdbSeasonResult = repository.getTmdbSeasonDetails(tmdbId, season.number)
-                            if (tmdbSeasonResult.isSuccess) {
-                                val tmdbSeason = tmdbSeasonResult.getOrNull()
-                                val newEpisodes = season.episodes.map { rawEpisode ->
-                                    val tmdbEpisode = tmdbSeason?.episodes?.find { it.episode_number == rawEpisode.number }
-                                    if (tmdbEpisode != null) {
-                                        rawEpisode.copy(
-                                            title = tmdbEpisode.name ?: rawEpisode.title,
-                                            overview = tmdbEpisode.overview,
-                                            stillPath = tmdbEpisode.still_path?.let { path -> "https://image.tmdb.org/t/p/w300$path" }
-                                        )
-                                    } else {
-                                        rawEpisode
-                                    }
-                                }
-                                enrichedSeasons[index] = season.copy(episodes = newEpisodes)
-                                _seasons.value = enrichedSeasons.toList()
+            try {
+                // 1. Fetch play URLs / Episodes to unblock the UI
+                if (initialMovie.type == "tv") {
+                    repository.getSeriesEpisodes(initialMovie.url).onSuccess { rawSeasons ->
+                        _seasons.value = rawSeasons
+                        val lastUrl = _lastPlayedEpisodeUrl.value
+                        if (lastUrl != null) {
+                            val seasonIdx = rawSeasons.indexOfFirst { s -> s.episodes.any { it.url == lastUrl } }
+                            if (seasonIdx != -1) {
+                                _selectedSeasonIndex.value = seasonIdx
                             }
                         }
+                    }.onFailure { err ->
+                        _streamError.value = err.message
+                    }
+                } else {
+                    // It's a movie, load stream URL
+                    repository.getMovieStreamUrl(initialMovie.url).onSuccess { streamUrl ->
+                        _movie.value = _movie.value?.copy(url = streamUrl)
+                    }.onFailure { err ->
+                        _streamError.value = err.message ?: "Unknown error loading stream"
                     }
                 }
+
+                // 2. Fetch TMDB metadata / sync with updated Room DB
+                val currentM = _movie.value ?: initialMovie
+                repository.getMovieDetails(currentM).onSuccess { enrichedMovie ->
+                    val currentStreamUrl = _movie.value?.url ?: enrichedMovie.url
+                    _movie.value = enrichedMovie.copy(url = currentStreamUrl)
+                    
+                    if (enrichedMovie.type == "tv" && enrichedMovie.tmdbId != null) {
+                        enrichEpisodes(enrichedMovie.tmdbId)
+                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("DetailViewModel", "Error loading details", e)
+            } finally {
+                _isLoading.value = false
             }
+        }
+    }
+
+    private suspend fun enrichEpisodes(tmdbId: Int) {
+        val currentSeasons = _seasons.value
+        if (currentSeasons.isEmpty()) return
+
+        val enrichedSeasons = currentSeasons.toMutableList()
+        for ((index, season) in enrichedSeasons.withIndex()) {
+            val tmdbSeasonResult = repository.getTmdbSeasonDetails(tmdbId, season.number)
+            if (tmdbSeasonResult.isSuccess) {
+                val tmdbSeason = tmdbSeasonResult.getOrNull()
+                val newEpisodes = season.episodes.map { rawEpisode ->
+                    val tmdbEpisode = tmdbSeason?.episodes?.find { it.episode_number == rawEpisode.number }
+                    if (tmdbEpisode != null) {
+                        rawEpisode.copy(
+                            title = tmdbEpisode.name ?: rawEpisode.title,
+                            overview = tmdbEpisode.overview,
+                            stillPath = tmdbEpisode.still_path?.let { path -> "https://image.tmdb.org/t/p/w300$path" }
+                        )
+                    } else {
+                        rawEpisode
+                    }
+                }
+                enrichedSeasons[index] = season.copy(episodes = newEpisodes)
+            }
+        }
+        _seasons.value = enrichedSeasons.toList()
+    }
+
+    fun searchTmdb(query: String, type: String, onResult: (List<com.potflix.data.remote.TmdbMovieDto>) -> Unit) {
+        viewModelScope.launch {
+            repository.searchTmdb(query, type).onSuccess { results ->
+                onResult(results)
+            }.onFailure {
+                onResult(emptyList())
+            }
+        }
+    }
+
+    fun applyTmdbCorrection(tmdbId: Long, type: String, onComplete: () -> Unit = {}) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            val detailResult = repository.getTmdbDetail(tmdbId.toInt(), type)
+            if (detailResult.isSuccess) {
+                val detail = detailResult.getOrNull()!!
+                val newTitle = detail.title ?: detail.name ?: initialMovie.title
+                val newPoster = detail.poster_path?.let { "https://image.tmdb.org/t/p/w500$it" } ?: movie.value?.poster
+                val newBackdrop = detail.backdrop_path?.let { "https://image.tmdb.org/t/p/w780$it" } ?: movie.value?.backdrop
+                val newOverview = detail.overview ?: movie.value?.overview
+                val newRating = detail.vote_average ?: movie.value?.rating
+
+                val currentMovie = movie.value ?: initialMovie
+                val updatedMovie = repository.updateMovieTmdbMatch(
+                    originalMovie = currentMovie,
+                    newTmdbId = tmdbId,
+                    type = type,
+                    newTitle = newTitle,
+                    newOverview = newOverview,
+                    newPoster = newPoster,
+                    newBackdrop = newBackdrop,
+                    newRating = newRating
+                ).getOrDefault(currentMovie.copy(
+                    title = newTitle,
+                    tmdbId = tmdbId.toInt(),
+                    type = type,
+                    poster = newPoster,
+                    backdrop = newBackdrop,
+                    overview = newOverview,
+                    rating = newRating
+                ))
+
+                _movie.value = updatedMovie
+
+                // Upload community correction to Firestore centrally
+                firebaseSyncManager.suggestTmdbCorrection(
+                    originalTitle = initialMovie.title,
+                    url = initialMovie.url,
+                    correctedTmdbId = tmdbId,
+                    correctedTitle = newTitle,
+                    type = type
+                )
+
+                // If TV, enrich episodes with new TMDB ID
+                if (type == "tv" || updatedMovie.type == "tv") {
+                    enrichEpisodes(tmdbId.toInt())
+                }
+
+                android.os.Handler(android.os.Looper.getMainLooper()).post {
+                    android.widget.Toast.makeText(context, "TMDB matched to \"$newTitle\"! Community suggestion submitted.", android.widget.Toast.LENGTH_LONG).show()
+                }
+            } else {
+                android.os.Handler(android.os.Looper.getMainLooper()).post {
+                    android.widget.Toast.makeText(context, "Failed to load TMDB info for ID: $tmdbId", android.widget.Toast.LENGTH_SHORT).show()
+                }
+            }
+            _isLoading.value = false
+            onComplete()
         }
     }
 

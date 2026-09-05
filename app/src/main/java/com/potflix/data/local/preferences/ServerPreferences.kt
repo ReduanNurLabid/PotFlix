@@ -35,4 +35,64 @@ class ServerPreferences @Inject constructor(
     fun setOnboardingCompleted(completed: Boolean) {
         prefs.edit().putBoolean("onboarding_completed", completed).apply()
     }
+
+    private val _dailyNotificationEnabled = MutableStateFlow(isDailyNotificationEnabled())
+    val dailyNotificationEnabled: StateFlow<Boolean> = _dailyNotificationEnabled.asStateFlow()
+
+    fun isDailyNotificationEnabled(): Boolean {
+        return prefs.getBoolean("daily_notification_enabled", true)
+    }
+
+    fun setDailyNotificationEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean("daily_notification_enabled", enabled).apply()
+        _dailyNotificationEnabled.value = enabled
+    }
+
+    private val _preferredAudioLanguage = MutableStateFlow(getPreferredAudioLanguage())
+    val preferredAudioLanguage: StateFlow<String> = _preferredAudioLanguage.asStateFlow()
+
+    fun getPreferredAudioLanguage(): String {
+        return prefs.getString("pref_audio_language", "en") ?: "en"
+    }
+
+    fun setPreferredAudioLanguage(langCode: String) {
+        prefs.edit().putString("pref_audio_language", langCode).apply()
+        _preferredAudioLanguage.value = langCode
+    }
+
+    private val _preferredSubtitleLanguage = MutableStateFlow(getPreferredSubtitleLanguage())
+    val preferredSubtitleLanguage: StateFlow<String> = _preferredSubtitleLanguage.asStateFlow()
+
+    fun getPreferredSubtitleLanguage(): String {
+        return prefs.getString("pref_subtitle_language", "off") ?: "off"
+    }
+
+    fun setPreferredSubtitleLanguage(langCode: String) {
+        prefs.edit().putString("pref_subtitle_language", langCode).apply()
+        _preferredSubtitleLanguage.value = langCode
+    }
+
+    companion object {
+        const val DEFAULT_TMDB_API_KEY = "cdb4d6683a4de1f186e7da86dccdd7f1"
+    }
+
+    private val _customTmdbApiKey = MutableStateFlow(getCustomTmdbApiKey())
+    val customTmdbApiKey: StateFlow<String> = _customTmdbApiKey.asStateFlow()
+
+    fun getCustomTmdbApiKey(): String {
+        return prefs.getString("custom_tmdb_api_key", "") ?: ""
+    }
+
+    fun setCustomTmdbApiKey(apiKey: String) {
+        val trimmed = apiKey.trim()
+        prefs.edit().putString("custom_tmdb_api_key", trimmed).apply()
+        _customTmdbApiKey.value = trimmed
+    }
+
+    fun getEffectiveTmdbApiKey(): String {
+        val custom = getCustomTmdbApiKey()
+        if (custom.isNotBlank()) return custom
+        if (com.potflix.BuildConfig.TMDB_API_KEY.isNotBlank()) return com.potflix.BuildConfig.TMDB_API_KEY
+        return DEFAULT_TMDB_API_KEY
+    }
 }

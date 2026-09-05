@@ -90,82 +90,76 @@ class HomeViewModel @Inject constructor(
             }
     }
 
+    private var loadDataJob: kotlinx.coroutines.Job? = null
+    private var heroWatchlistJob: kotlinx.coroutines.Job? = null
+
+    fun refresh() {
+        loadHomeData()
+    }
+
+    fun removeFromWatchHistory(movie: Movie) {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            repository.removeFromWatchHistory(movie.url)
+        }
+    }
+
     private fun loadHomeData() {
-        viewModelScope.launch {
+        loadDataJob?.cancel()
+        loadDataJob = viewModelScope.launch {
             _isLoading.value = true
-            
-            // 1. Get Trending Banner (Top 10 mixed movies/series)
-            launch {
-                repository.getTrendingSuggestionsFlow("all").collect { movies ->
-                    val top10 = movies.take(10)
+            try {
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    // 1. Get Trending Banner (Top 10 mixed movies/series)
+                    val trendingRes = repository.getTrendingSuggestions("all")
+                    val top10 = trendingRes.getOrDefault(emptyList()).take(10)
                     _trendingMovies.value = top10
                     
                     val hero = top10.firstOrNull()
                     if (hero != null) {
-                        launch {
+                        heroWatchlistJob?.cancel()
+                        heroWatchlistJob = viewModelScope.launch {
                             watchlistRepository.isInWatchlist(hero.url).collectLatest { inWatchlist ->
                                 _isHeroInWatchlist.value = inWatchlist
                             }
                         }
-                    }
-                    
-                    // Lazy fetch TMDB details for the banner items
-                    top10.forEach { movie ->
-                        launch {
-                            repository.getMovieDetails(movie).onSuccess { detailedMovie ->
-                                if (detailedMovie.poster != null) {
-                                    val currentList = _trendingMovies.value.toMutableList()
-                                    val index = currentList.indexOfFirst { it.url == movie.url }
-                                    if (index != -1) {
-                                        currentList[index] = detailedMovie
-                                        _trendingMovies.value = currentList
-                                    }
+                        // Enrich hero poster/backdrop if missing
+                        if (hero.backdrop == null || hero.poster == null) {
+                            repository.getMovieDetails(hero).onSuccess { detailedHero ->
+                                val currentList = _trendingMovies.value.toMutableList()
+                                if (currentList.isNotEmpty()) {
+                                    currentList[0] = detailedHero
+                                    _trendingMovies.value = currentList
                                 }
                             }
                         }
                     }
-                }
-            }
-            
-            // 2. Load all actual categories from the database
-            repository.getCategories().onSuccess { dbCategories ->
-                val dynamicCategories = mutableListOf<Category>()
-                val dynamicCategoryMovies = mutableMapOf<String, List<Movie>>()
-                
-                // For each category, fetch its latest movies
-                dbCategories.forEach { category ->
-                    repository.getLatestMovies(category.id).onSuccess { moviesInCat ->
-                        if (moviesInCat.isNotEmpty()) {
-                            val items = moviesInCat.take(15)
-                            dynamicCategories.add(category)
-                            dynamicCategoryMovies[category.id] = items
-                            
-                            // Lazy fetch TMDB details for the row items
-                            items.forEach { movie ->
-                                launch {
-                                    repository.getMovieDetails(movie).onSuccess { detailedMovie ->
-                                        if (detailedMovie.poster != null) {
-                                            val currentMap = _categoryMovies.value.toMutableMap()
-                                            val currentList = currentMap[category.id]?.toMutableList() ?: return@launch
-                                            val index = currentList.indexOfFirst { it.url == movie.url }
-                                            if (index != -1) {
-                                                currentList[index] = detailedMovie
-                                                currentMap[category.id] = currentList
-                                                _categoryMovies.value = currentMap
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                
-                _categories.value = dynamicCategories
-                _categoryMovies.value = dynamicCategoryMovies
-            }
 
-            _isLoading.value = false
+                    // 2. Load all actual categories from the database off the main thread
+                    repository.getCategories().onSuccess { dbCategories ->
+                        val dynamicCategories = mutableListOf<Category>()
+                        val dynamicCategoryMovies = mutableMapOf<String, List<Movie>>()
+                        
+                        dbCategories.forEach { category ->
+                            repository.getLatestMovies(category.id).onSuccess { moviesInCat ->
+                                if (moviesInCat.isNotEmpty()) {
+                                    dynamicCategories.add(category)
+                                    dynamicCategoryMovies[category.id] = moviesInCat.take(15)
+                                }
+                            }
+                        }
+                        
+                        _categories.value = dynamicCategories
+                        _categoryMovies.value = dynamicCategoryMovies
+                    }
+                }
+            } catch (e: Exception) {
+                if (e !is kotlinx.coroutines.CancellationException) {
+                    android.util.Log.e("HomeViewModel", "Error loading home data", e)
+                }
+            } finally {
+                kotlinx.coroutines.delay(500)
+                _isLoading.value = false
+            }
         }
     }
 }

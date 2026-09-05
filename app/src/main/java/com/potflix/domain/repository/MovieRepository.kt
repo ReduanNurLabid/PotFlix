@@ -21,5 +21,20 @@ interface MovieRepository {
     // History functions
     suspend fun addToWatchHistory(movie: Movie)
     suspend fun updateWatchProgress(movieUrl: String, streamUrl: String, position: Long, duration: Long)
+    suspend fun removeFromWatchHistory(movieUrl: String)
     fun getWatchHistoryFlow(): Flow<List<Movie>>
+
+    // TMDB metadata editing & corrections
+    suspend fun searchTmdb(query: String, type: String): Result<List<com.potflix.data.remote.TmdbMovieDto>>
+    suspend fun getTmdbDetail(tmdbId: Int, type: String): Result<com.potflix.data.remote.TmdbDetailDto>
+    suspend fun updateMovieTmdbMatch(
+        originalMovie: Movie,
+        newTmdbId: Long,
+        type: String,
+        newTitle: String,
+        newOverview: String?,
+        newPoster: String?,
+        newBackdrop: String?,
+        newRating: Double?
+    ): Result<Movie>
 }

@@ -26,6 +26,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.potflix.presentation.common.shimmerEffect
+import com.potflix.presentation.common.CategoryDetailGridSkeleton
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
 import com.potflix.presentation.navigation.Screen
 import java.net.URLDecoder
 
@@ -57,23 +60,7 @@ fun CategoryDetailScreen(
     ) { padding ->
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
             if (isLoading && movies.isEmpty()) {
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(3),
-                    contentPadding = PaddingValues(16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    items(12) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .aspectRatio(0.7f)
-                                .clip(RoundedCornerShape(8.dp))
-                                .shimmerEffect()
-                        )
-                    }
-                }
+                CategoryDetailGridSkeleton()
             } else if (movies.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text("No movies found in this category.", color = Color.Gray)
